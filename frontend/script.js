@@ -104,20 +104,21 @@ async function loadGallery() {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  BOOKING FORM
+//  BOOKING FORM + PAY NOW
 // ═══════════════════════════════════════════════════════════
 async function setupBookingForm() {
   const form = document.getElementById('booking-form');
   const status = document.getElementById('booking-status');
   const methodSelect = document.getElementById('payment-method-select');
-  const preview = document.getElementById('payment-preview');
   const depositInput = form.querySelector('input[name="payment_amount"]');
   const paymentPanel = document.getElementById('payment-panel');
+  const methodPicker = document.getElementById('method-picker');
   const instructions = document.getElementById('payment-instructions');
   const receiptForm = document.getElementById('receipt-form');
   const receiptStatus = document.getElementById('receipt-status');
 
   let currentBookingId = null;
+  let currentReferenceCode = null;
   let PAYMENT_METHODS = [];
   let DEPOSIT_AMOUNT = 0;
 
@@ -133,30 +134,33 @@ async function setupBookingForm() {
     if (depositInput && DEPOSIT_AMOUNT > 0) {
       depositInput.value = DEPOSIT_AMOUNT.toFixed(2);
     }
+
+    if (PAYMENT_METHODS.length === 0) {
+      methodSelect.innerHTML = '<option value="">No methods available</option>';
+    }
   } catch {
     methodSelect.innerHTML = '<option value="">Failed to load</option>';
   }
 
-  methodSelect.addEventListener('change', () => {
-    const method = PAYMENT_METHODS.find(m => m.id === methodSelect.value);
-    if (!method) { preview.style.display = 'none'; return; }
-    preview.style.display = 'block';
-    preview.innerHTML = `
-      <div style="background:#161616;border:1px solid #242424;border-left:3px solid #c9a227;border-radius:6px;padding:1.25rem;">
-        <p style="margin:0 0 0.5rem;"><strong>Send to:</strong>
-          <code style="background:#0a0a0a;padding:0.2rem 0.5rem;border-radius:3px;color:#c9a227;">${escapeHtml(method.handle)}</code>
-        </p>
-        ${method.link ? `<a href="${method.link}" target="_blank" rel="noopener" class="btn" style="margin-top:0.5rem;font-size:0.85rem;padding:0.6rem 1.25rem;">Open ${method.label}</a>` : ''}
-        <p style="margin:0.75rem 0 0;color:#9a9a9a;font-size:0.85rem;">${method.note}</p>
-      </div>
-    `;
-  });
+  const ICONS = {
+    paypal:  '💳',
+    venmo:   '🅥',
+    zelle:   '🏦',
+    cashapp: '💵',
+    btc:     '₿',
+    bank:    '🏛'
+  };
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     status.textContent = 'Submitting…';
 
     const data = Object.fromEntries(new FormData(form).entries());
+
+    if (!data.payment_method) {
+      status.textContent = '❌ Please select a payment method above.';
+      return;
+    }
 
     try {
       const res = await fetch('/api/bookings', {
@@ -172,27 +176,11 @@ async function setupBookingForm() {
       }
 
       currentBookingId = payload.bookingId;
-      const method = PAYMENT_METHODS.find(m => m.id === data.payment_method);
+      currentReferenceCode = payload.referenceCode;
 
-      instructions.innerHTML = `
-        <div style="background:#161616;border:1px solid #242424;border-left:3px solid #c9a227;border-radius:6px;padding:1.5rem;max-width:560px;">
-          <p style="margin:0 0 0.75rem;"><strong>Method:</strong> ${escapeHtml(method.label)}</p>
-          <p style="margin:0 0 0.75rem;"><strong>Reference:</strong>
-            <span style="color:#c9a227;font-family:monospace;letter-spacing:2px;">${escapeHtml(payload.referenceCode)}</span>
-          </p>
-          <p style="margin:0 0 0.75rem;"><strong>Send to:</strong>
-            <code style="background:#0a0a0a;padding:0.2rem 0.5rem;border-radius:3px;color:#c9a227;">${escapeHtml(method.handle)}</code>
-          </p>
-          ${data.payment_amount ? `<p style="margin:0 0 0.75rem;"><strong>Amount:</strong> $${escapeHtml(data.payment_amount)}</p>` : ''}
-          ${method.link ? `<a href="${method.link}" target="_blank" rel="noopener" class="btn" style="font-size:0.85rem;padding:0.6rem 1.25rem;">Open ${method.label}</a>` : ''}
-          <p style="margin:0.75rem 0 0;color:#9a9a9a;font-size:0.9rem;">${method.note}</p>
-        </div>
-        <p style="margin-top:1rem;color:#9a9a9a;font-size:0.9rem;">
-          After sending, take a screenshot of the confirmation and upload it below.
-        </p>
-      `;
+      status.textContent = `✅ Booking ${payload.referenceCode} created. Complete your deposit below.`;
 
-      status.textContent = `✅ Booking ${payload.referenceCode} created.`;
+      renderMethodPicker();
       paymentPanel.style.display = 'block';
       paymentPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -200,6 +188,111 @@ async function setupBookingForm() {
       status.textContent = '❌ Network error. Please try again.';
     }
   });
+
+  function renderMethodPicker() {
+    if (!methodPicker) return;
+    methodPicker.innerHTML = '';
+
+    PAYMENT_METHODS.forEach(m => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'pay-method-btn';
+      btn.dataset.method = m.id;
+      btn.innerHTML = `
+        <span class="pm-icon">${ICONS[m.id] || '•'}</span>
+        <span class="pm-label">${escapeHtml(m.label)}</span>
+      `;
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.pay-method-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderInstructions(m);
+      });
+      methodPicker.appendChild(btn);
+    });
+
+    const chosen = methodSelect.value;
+    if (chosen) {
+      const auto = methodPicker.querySelector(`[data-method="${chosen}"]`);
+      if (auto) {
+        auto.classList.add('active');
+        const m = PAYMENT_METHODS.find(x => x.id === chosen);
+        if (m) renderInstructions(m);
+      }
+    }
+  }
+
+  function renderInstructions(method) {
+    const isMultiline = method.multiLine;
+    const handleHtml = isMultiline
+      ? `<pre style="background:#0a0a0a;padding:1rem;border-radius:6px;color:#c9a227;
+                    font-family:monospace;font-size:0.9rem;white-space:pre-wrap;
+                    margin:0.5rem 0 0;border:1px solid #242424;">${escapeHtml(method.handle)}</pre>`
+      : `<code style="background:#0a0a0a;padding:0.4rem 0.75rem;border-radius:4px;
+                     color:#c9a227;font-family:monospace;font-size:0.95rem;
+                     display:inline-block;word-break:break-all;">${escapeHtml(method.handle)}</code>`;
+
+    const copyBtn = !isMultiline
+      ? `<button type="button" class="btn" style="margin-left:0.5rem;padding:0.4rem 0.9rem;
+                                                   font-size:0.75rem;background:transparent;
+                                                   border:1px solid #242424;color:#c9a227;"
+                 data-copy="${escapeHtml(method.handle)}">Copy</button>`
+      : '';
+
+    instructions.innerHTML = `
+      <div style="background:#0f0f0f;border:1px solid #242424;border-radius:8px;padding:1.5rem;">
+        <h3 style="margin:0 0 0.5rem;color:#c9a227;font-family:Georgia,serif;font-size:1.1rem;">
+          Send via ${escapeHtml(method.label)}
+        </h3>
+
+        <p style="margin:0.75rem 0 0.25rem;color:#9a9a9a;font-size:0.8rem;
+                  text-transform:uppercase;letter-spacing:0.1em;">Send to</p>
+        <div>${handleHtml}${copyBtn}</div>
+
+        <p style="margin:1rem 0 0.25rem;color:#9a9a9a;font-size:0.8rem;
+                  text-transform:uppercase;letter-spacing:0.1em;">Amount</p>
+        <p style="margin:0;color:#f0ede8;font-size:1.15rem;font-weight:600;">
+          $${parseFloat(depositInput.value || DEPOSIT_AMOUNT || 0).toFixed(2)}
+        </p>
+
+        <p style="margin:1rem 0 0.25rem;color:#9a9a9a;font-size:0.8rem;
+                  text-transform:uppercase;letter-spacing:0.1em;">Your Reference</p>
+        <p style="margin:0;color:#c9a227;font-family:monospace;font-size:1.1rem;
+                  letter-spacing:3px;">${escapeHtml(currentReferenceCode || '')}</p>
+
+        ${method.note ? `
+          <div style="margin-top:1.25rem;padding:0.85rem;background:rgba(201,162,39,0.06);
+                      border-left:3px solid #c9a227;border-radius:4px;">
+            <p style="margin:0;color:#c8c8c8;font-size:0.9rem;">${escapeHtml(method.note)}</p>
+          </div>
+        ` : ''}
+
+        ${method.link ? `
+          <a href="${method.link}" target="_blank" rel="noopener" class="btn"
+             style="margin-top:1.25rem;font-size:0.85rem;padding:0.6rem 1.5rem;text-decoration:none;">
+            Open ${escapeHtml(method.label)} →
+          </a>
+        ` : ''}
+      </div>
+
+      <p style="margin-top:1rem;color:#9a9a9a;font-size:0.9rem;">
+        After sending the payment, take a screenshot of the confirmation and upload it below.
+      </p>
+    `;
+
+    const copyBtnEl = instructions.querySelector('[data-copy]');
+    if (copyBtnEl) {
+      copyBtnEl.addEventListener('click', async () => {
+        const text = copyBtnEl.dataset.copy;
+        try {
+          await navigator.clipboard.writeText(text);
+          copyBtnEl.textContent = 'Copied ✓';
+          setTimeout(() => { copyBtnEl.textContent = 'Copy'; }, 1500);
+        } catch {
+          copyBtnEl.textContent = 'Failed';
+        }
+      });
+    }
+  }
 
   receiptForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -513,7 +606,9 @@ async function loadBookings() {
       paypal:  { text: 'PayPal',   cls: 'badge-paypal'  },
       venmo:   { text: 'Venmo',    cls: 'badge-venmo'   },
       zelle:   { text: 'Zelle',    cls: 'badge-zelle'   },
-      cashapp: { text: 'Cash App', cls: 'badge-cashapp' }
+      cashapp: { text: 'Cash App', cls: 'badge-cashapp' },
+      btc:     { text: 'Bitcoin',  cls: 'badge-btc'     },
+      bank:    { text: 'Bank',     cls: 'badge-bank'    }
     };
     const info = labels[m.toLowerCase()] || { text: m, cls: 'badge-pending' };
     return `<span class="method-badge ${info.cls}">${info.text}</span>`;
