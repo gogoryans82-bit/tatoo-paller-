@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Ink & Iron</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <span class="logo">Admin Panel</span>
+      <nav>
+        <a href="/admin-payment-settings.html">Payment Settings</a>
+        <a href="/">View Site</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="container section">
+
+    <div class="admin-section">
+      <h3>Quick Actions</h3>
+      <p style="color:#9a9a9a;font-size:0.9rem;margin-bottom:1rem;">
+        Manage the payment handles customers see on the booking page.
+      </p>
+      <a href="/admin-payment-settings.html" class="btn" style="text-decoration:none;">
+        ⚙ Edit Payment Settings
+      </a>
+    </div>
+
+    <div class="admin-section">
+      <h3>Upload Photo</h3>
+      <form id="upload-form" class="upload-form">
+        <input type="text" name="title" placeholder="Title" required>
+        <textarea name="description" placeholder="Description (optional)" rows="2"></textarea>
+        <input type="file" name="photo" accept="image/*" required>
+        <button type="submit" class="btn">Upload</button>
+      </form>
+      <p id="upload-status" class="status"></p>
+    </div>
+
+    <div class="admin-section">
+      <h3>Manage Photos</h3>
+      <div id="admin-gallery" class="gallery-admin"></div>
+    </div>
+
+    <div class="admin-section">
+      <h3>Bookings</h3>
+      <div id="bookings-list"></div>
+    </div>
+
+  </div>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; 2026 Ink &amp; Iron — Admin</p>
+    </div>
+  </footer>
+
+  <script src="/script.js"></script>
+</body>
+</html>
