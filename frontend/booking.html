@@ -75,6 +75,43 @@
       <button type="submit" class="btn">Upload Receipt</button>
     </form>
     <p id="receipt-status" class="status"></p>
+    <!-- ═══════════════ SUCCESS PANEL ═══════════════ -->
+<section id="success-panel" class="container section" style="display:none;">
+  <div style="background:#161616;border:1px solid #242424;border-left:4px solid #3a8a5a;
+              border-radius:10px;padding:2.5rem;max-width:640px;text-align:center;">
+
+    <div style="font-size:3rem;color:#5fd88a;margin-bottom:1rem;">✓</div>
+
+    <h2 style="margin-top:0;justify-content:center;display:flex;padding-bottom:0.75rem;">
+      Booking Submitted
+    </h2>
+
+    <p style="color:#c8c8c8;font-size:1.05rem;margin-bottom:1.5rem;">
+      We received your payment receipt and we're verifying it now.
+      You'll receive a confirmation email within 24 hours.
+    </p>
+
+    <div style="background:#0a0a0a;border:1px solid #242424;border-radius:8px;
+                padding:1.25rem;margin:1.5rem 0;">
+      <p style="margin:0;color:#9a9a9a;font-size:0.75rem;text-transform:uppercase;
+                letter-spacing:0.1em;">Your Reference Code</p>
+      <p id="success-reference"
+         style="margin:0.5rem 0 0;color:#c9a227;font-family:monospace;font-size:1.5rem;
+                letter-spacing:4px;font-weight:600;"></p>
+      <p style="margin:0.75rem 0 0;color:#9a9a9a;font-size:0.85rem;">
+        Save this code — you'll need it to check your appointment status.
+      </p>
+    </div>
+
+    <a href="/status.html" class="btn" style="text-decoration:none;margin-top:0.5rem;">
+      Check Appointment Status
+    </a>
+
+    <p style="color:#6a6a6a;font-size:0.85rem;margin-top:1.5rem;">
+      Questions? Email us at hello@inkandiron.example
+    </p>
+  </div>
+</section>
   </section>
 
   <footer class="site-footer">
