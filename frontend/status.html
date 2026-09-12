@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Check Appointment Status — Ink & Iron</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="/" class="logo">Ink<span>&</span>Iron</a>
+      <nav>
+        <a href="/">Gallery</a>
+        <a href="/about.html">About</a>
+        <a href="/booking.html">Book Now</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="container section">
+    <h2>Check Your Appointment</h2>
+    <p>Enter the reference code from your confirmation email to view your appointment and download your receipt.</p>
+
+    <form id="lookup-form" class="booking-form" style="max-width:520px;">
+      <label>Reference Code *</label>
+      <input type="text" name="reference_code" placeholder="INK-2026-XXXXX"
+             required style="text-transform:uppercase;letter-spacing:2px;font-family:monospace;">
+
+      <label>Email *</label>
+      <input type="email" name="email" placeholder="you@example.com" required>
+
+      <button type="submit" class="btn">Look Up Appointment</button>
+    </form>
+
+    <p id="lookup-status" class="status"></p>
+  </section>
+
+  <section id="result-panel" class="container section" style="display:none;">
+    <h2>Your Appointment</h2>
+    <div id="appointment-card"></div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; 2026 Ink &amp; Iron Tattoo Parlor</p>
+    </div>
+  </footer>
+
+  <script src="/script.js"></script>
+</body>
+</html>
