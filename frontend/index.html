@@ -3,19 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ink & Iron — Tattoo Parlor</title>
-  <meta name="description" content="Custom tattoos by appointment. View our portfolio and book your session today.">
 
-  <!-- Open Graph (Facebook) -->
+  <title>Ink & Iron — Tattoo Parlor</title>
+  <meta name="description" content="Custom tattoos by appointment. Blackwork, fine line, and fully custom designs. View our portfolio and book your session today.">
+
+  <!-- ── Open Graph (Facebook) ── -->
   <meta property="og:title" content="Ink & Iron — Tattoo Parlor">
   <meta property="og:description" content="Custom tattoos by appointment. View our portfolio and book your session today.">
   <meta property="og:image" content="https://your-site.onrender.com/preview.jpg">
   <meta property="og:url" content="https://your-site.onrender.com">
   <meta property="og:type" content="website">
 
+  <!-- ── Twitter Card ── -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Ink & Iron — Tattoo Parlor">
+  <meta name="twitter:description" content="Custom tattoos by appointment.">
+
+  <!-- ── Stylesheet (served from frontend/style.css via express.static) ── -->
   <link rel="stylesheet" href="/style.css">
+
+  <!-- ── Favicon (optional — remove if you don't have one yet) ── -->
+  <!-- <link rel="icon" href="/favicon.ico" type="image/x-icon"> -->
 </head>
+
 <body>
+
+  <!-- ═══════════════ HEADER ═══════════════ -->
   <header class="site-header">
     <div class="container header-inner">
       <a href="/" class="logo">Ink<span>&</span>Iron</a>
@@ -27,6 +40,7 @@
     </div>
   </header>
 
+  <!-- ═══════════════ HERO ═══════════════ -->
   <section class="hero">
     <div class="container">
       <h1>Permanent art,<br>crafted with care.</h1>
@@ -35,22 +49,36 @@
     </div>
   </section>
 
+  <!-- ═══════════════ GALLERY ═══════════════ -->
   <section class="container section">
     <h2>Recent Work</h2>
     <div id="gallery-grid" class="gallery-grid"></div>
     <p id="gallery-status" class="status">Loading…</p>
   </section>
 
+  <!-- ═══════════════ ABOUT TEASER ═══════════════ -->
+  <section class="container section">
+    <h2>Visit the Studio</h2>
+    <p><strong>Address:</strong> 123 Main Street, Your City</p>
+    <p><strong>Hours:</strong> Tuesday–Saturday, 11am–7pm</p>
+    <p><strong>Email:</strong> hello@inkandiron.example</p>
+    <p><a href="/about.html">Read more about us →</a></p>
+  </section>
+
+  <!-- ═══════════════ FOOTER ═══════════════ -->
   <footer class="site-footer">
     <div class="container">
-      <p>&copy; 2026 Ink & Iron Tattoo Parlor</p>
+      <p>&copy; 2026 Ink & Iron Tattoo Parlor. All rights reserved.</p>
       <p>
-        <a href="https://facebook.com/yourpage" target="_blank" rel="noopener">Facebook</a> &middot;
+        <a href="https://facebook.com/yourpage" target="_blank" rel="noopener">Facebook</a>
+        &middot;
         <a href="https://instagram.com/yourpage" target="_blank" rel="noopener">Instagram</a>
       </p>
     </div>
   </footer>
 
+  <!-- ── Script (served from frontend/script.js via express.static) ── -->
   <script src="/script.js"></script>
+
 </body>
-</html>frof
+</html>
