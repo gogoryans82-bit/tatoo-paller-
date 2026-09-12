@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Book an Appointment — Ink & Iron</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="/" class="logo">Ink<span>&</span>Iron</a>
+      <nav>
+        <a href="/">Gallery</a>
+        <a href="/about.html">About</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="container section">
+    <h2>Book Your Session</h2>
+    <p>Fill out the form below and we'll get back to you within 24 hours.</p>
+
+    <form id="booking-form" class="booking-form">
+      <label>Name *</label>
+      <input type="text" name="name" required>
+
+      <label>Email *</label>
+      <input type="email" name="email" required>
+
+      <label>Phone</label>
+      <input type="tel" name="phone">
+
+      <label>Preferred Date</label>
+      <input type="date" name="preferred_date">
+
+      <label>Describe your idea</label>
+      <textarea name="description" rows="4" placeholder="Size, placement, style, reference images..."></textarea>
+
+      <button type="submit" class="btn">Request Booking</button>
+    </form>
+
+    <p id="booking-status" class="status"></p>
+  </section>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; 2026 Ink & Iron Tattoo Parlor</p>
+    </div>
+  </footer>
+
+  <script src="/script.js"></script>
+</body>
+</html>
