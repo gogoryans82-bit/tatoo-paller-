@@ -294,7 +294,7 @@ async function setupBookingForm() {
     }
   }
 
-  receiptForm.addEventListener('submit', async (e) => {
+ receiptForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!currentBookingId) {
       receiptStatus.textContent = '❌ No active booking. Please submit the form first.';
