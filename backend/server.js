@@ -718,6 +718,42 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch bookings' });
   }
+});// ─── Test email configuration (admin only) ──────────────────────────────
+app.get('/api/admin/test-email', requireAdmin, async (req, res) => {
+  const target = req.query.to || process.env.STUDIO_EMAIL;
+  if (!target) {
+    return res.status(400).json({ error: 'No recipient — pass ?to=email@example.com' });
+  }
+
+  try {
+    await transporter.verify();
+    const info = await transporter.sendMail({
+      from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_USER}>`,
+      to: target,
+      subject: '✅ Ink & Iron email test',
+      html: emailWrapper('Email Test', `
+        <p>This is a test email from your Ink & Iron booking system.</p>
+        <p>If you received this, your email configuration is working correctly.</p>
+        <p>Sent at: ${new Date().toISOString()}</p>
+        <p>From: ${process.env.EMAIL_USER}</p>
+      `)
+    });
+    res.json({
+      success: true,
+      messageId: info.messageId,
+      accepted: info.accepted,
+      rejected: info.rejected,
+      response: info.response
+    });
+  } catch (err) {
+    console.error('Test email failed:', err);
+    res.status(500).json({
+      error: err.message,
+      code: err.code,
+      response: err.response,
+      command: err.command
+    });
+  }
 });
 
 app.post('/api/admin/bookings/:id/approve', requireAdmin, async (req, res, next) => {
