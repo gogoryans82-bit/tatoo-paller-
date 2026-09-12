@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Settings — Ink & Iron Admin</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .settings-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.75rem;
+      margin-bottom: 1.5rem;
+      max-width: 640px;
+    }
+    .settings-card h3 {
+      margin: 0 0 0.35rem;
+      font-family: var(--font-display);
+      font-size: 1.35rem;
+      color: var(--text);
+    }
+    .settings-card .hint {
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      margin-bottom: 1.25rem;
+    }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .toggle-row input[type="checkbox"] {
+      appearance: none;
+      width: 44px;
+      height: 24px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s var(--ease), border-color 0.2s var(--ease);
+      flex-shrink: 0;
+    }
+    .toggle-row input[type="checkbox"]::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 18px;
+      height: 18px;
+      background: var(--text-dim);
+      border-radius: 50%;
+      transition: transform 0.2s var(--ease), background 0.2s var(--ease);
+    }
+    .toggle-row input[type="checkbox"]:checked {
+      background: rgba(201, 162, 39, 0.2);
+      border-color: var(--gold);
+    }
+    .toggle-row input[type="checkbox"]:checked::after {
+      transform: translateX(20px);
+      background: var(--gold);
+    }
+    .toggle-row span {
+      font-weight: 600;
+      color: var(--text);
+      font-size: 0.95rem;
+      letter-spacing: 0.02em;
+    }
+    .field-label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.4rem;
+      margin-top: 0.5rem;
+    }
+    .method-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.2rem 0.55rem;
+      border-radius: 100px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-left: 0.5rem;
+    }
+    .badge-paypal  { background: rgba(0, 112, 186, 0.18); color: #4fa3e0; }
+    .badge-venmo   { background: rgba(0, 130, 200, 0.18); color: #4fb3e0; }
+    .badge-zelle   { background: rgba(120, 70, 180, 0.18); color: #b28ee0; }
+    .badge-cashapp { background: rgba(0, 180, 90, 0.18); color: #4fd8a0; }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      text-decoration: none;
+      margin-bottom: 1.5rem;
+      transition: color 0.2s var(--ease);
+    }
+    .back-link:hover { color: var(--gold); }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <span class="logo">Payment Settings</span>
+      <nav>
+        <a href="/admin-panel.html">← Back to Admin</a>
+        <a href="/">View Site</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container section">
+    <a href="/admin-panel.html" class="back-link">← Back to Admin Panel</a>
+
+    <h2>Payment Settings</h2>
+    <p style="color: var(--text-muted); max-width: 640px; margin-bottom: 2rem;">
+      These details appear on the booking page for customers. Changes take effect immediately —
+      no redeploy needed.
+    </p>
+
+    <form id="payment-settings-form">
+
+      <!-- ══════════════ DEPOSIT ══════════════ -->
+      <div class="settings-card">
+        <h3>Default Deposit</h3>
+        <p class="hint">Suggested amount shown to customers on the booking form.</p>
+        <label class="field-label">Amount (USD)</label>
+        <input type="number" name="deposit_amount" min="0" step="0.01" placeholder="50">
+      </div>
+
+      <!-- ══════════════ PAYPAL ══════════════ -->
+      <div class="settings-card">
+        <h3>PayPal <span class="method-badge badge-paypal">Active</span></h3>
+        <p class="hint">Customers will see a PayPal.me link and your email for manual transfers.</p>
+        <label class="toggle-row">
+          <input type="checkbox" name="payment_paypal_enabled">
+          <span>Enable PayPal</span>
+        </label>
+        <label class="field-label">PayPal Email or PayPal.me Username</label>
+        <input type="text" name="payment_paypal_handle" placeholder="yourpaypal@email.com">
+      </div>
+
+      <!-- ══════════════ VENMO ══════════════ -->
+      <div class="settings-card">
+        <h3>Venmo <span class="method-badge badge-venmo">Active</span></h3>
+        <p class="hint">Customers will get a link that opens your Venmo profile directly.</p>
+        <label class="toggle-row">
+          <input type="checkbox" name="payment_venmo_enabled">
+          <span>Enable Venmo</span>
+        </label>
+        <label class="field-label">Venmo Handle</label>
+        <input type="text" name="payment_venmo_handle" placeholder="@YourVenmoHandle">
+      </div>
+
+      <!-- ══════════════ ZELLE ══════════════ -->
+      <div class="settings-card">
+        <h3>Zelle <span class="method-badge badge-zelle">Active</span></h3>
+        <p class="hint">Sent via the customer's own bank app. No deep link available.</p>
+        <label class="toggle-row">
+          <input type="checkbox" name="payment_zelle_enabled">
+          <span>Enable Zelle</span>
+        </label>
+        <label class="field-label">Zelle Email or Phone</label>
+        <input type="text" name="payment_zelle_handle" placeholder="yourstudio@email.com">
+      </div>
+
+      <!-- ══════════════ CASH APP ══════════════ -->
+      <div class="settings-card">
+        <h3>Cash App <span class="method-badge badge-cashapp">Optional</span></h3>
+        <p class="hint">Optional — enable if you accept Cash App transfers.</p>
+        <label class="toggle-row">
+          <input type="checkbox" name="payment_cashapp_enabled">
+          <span>Enable Cash App</span>
+        </label>
+        <label class="field-label">$Cashtag</label>
+        <input type="text" name="payment_cashapp_handle" placeholder="$YourCashtag">
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-top: 2rem; flex-wrap: wrap;">
+        <button type="submit" class="btn">Save Payment Settings</button>
+        <button type="button" id="reload-settings" class="btn"
+                style="background: transparent; border: 1px solid var(--border); color: var(--text);">
+          Discard Changes
+        </button>
+      </div>
+
+      <p id="payment-settings-status" class="status"></p>
+
+    </form>
+  </main>
+
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; 2026 Ink &amp; Iron Tattoo Parlor — Admin</p>
+    </div>
+  </footer>
+
+  <script src="/script.js"></script>
+</body>
+</html>
