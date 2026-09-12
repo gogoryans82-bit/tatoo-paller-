@@ -7,19 +7,21 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+
   <header class="site-header">
     <div class="container header-inner">
       <a href="/" class="logo">Ink<span>&</span>Iron</a>
       <nav>
         <a href="/">Gallery</a>
         <a href="/about.html">About</a>
+        <a href="/status.html">Check Status</a>
       </nav>
     </div>
   </header>
 
   <section class="container section">
     <h2>Book Your Session</h2>
-    <p>Fill out the form below and we'll get back to you within 24 hours.</p>
+    <p>Fill out the form below. After submitting, you'll be able to send the deposit right away.</p>
 
     <form id="booking-form" class="booking-form">
       <label>Name *</label>
@@ -37,15 +39,47 @@
       <label>Describe your idea</label>
       <textarea name="description" rows="4" placeholder="Size, placement, style, reference images..."></textarea>
 
-      <button type="submit" class="btn">Request Booking</button>
+      <label>Preferred Payment Method *</label>
+      <select name="payment_method" id="payment-method-select" required>
+        <option value="">Loading methods…</option>
+      </select>
+
+      <label>Deposit Amount (USD)</label>
+      <input type="number" name="payment_amount" min="0" step="0.01" placeholder="e.g. 50">
+
+      <button type="submit" class="btn">Submit &amp; Continue to Payment</button>
     </form>
 
     <p id="booking-status" class="status"></p>
   </section>
 
+  <!-- PAYMENT PANEL -->
+  <section id="payment-panel" class="container section" style="display:none;">
+    <div style="background:#161616;border:1px solid #242424;border-left:4px solid #c9a227;
+                border-radius:10px;padding:2rem;max-width:720px;">
+
+      <h2 style="margin-top:0;">Pay Now — Complete Your Deposit</h2>
+      <p style="color:#9a9a9a;margin-bottom:1.5rem;">
+        Secure your appointment by sending the deposit now. Choose how you'd like to pay below.
+      </p>
+
+      <div id="method-picker"></div>
+      <div id="payment-instructions" style="margin-top:1.5rem;"></div>
+    </div>
+
+    <h3 style="margin-top:2.5rem;">Upload Payment Receipt</h3>
+    <p>Take a screenshot of the payment confirmation in your banking or wallet app and upload it below.</p>
+
+    <form id="receipt-form" class="upload-form">
+      <input type="file" name="receipt" accept="image/*" required>
+      <button type="submit" class="btn">Upload Receipt</button>
+    </form>
+    <p id="receipt-status" class="status"></p>
+  </section>
+
   <footer class="site-footer">
     <div class="container">
-      <p>&copy; 2026 Ink & Iron Tattoo Parlor</p>
+      <p>&copy; 2026 Ink &amp; Iron Tattoo Parlor</p>
     </div>
   </footer>
 
