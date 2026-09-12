@@ -10,23 +10,26 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ─── PostgreSQL Connection ───────────────────────────────────────────────
+// Path to the frontend folder (one level up from backend/)
+const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
+
+// ─── PostgreSQL ──────────────────────────────────────────────────────────
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-// ─── Cloudinary Setup ────────────────────────────────────────────────────
+// ─── Cloudinary ──────────────────────────────────────────────────────────
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// ─── Multer (in-memory storage before Cloudinary) ────────────────────────
+// ─── Multer (memory buffer → Cloudinary) ─────────────────────────────────
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) cb(null, true);
     else cb(new Error('Only image files are allowed'));
@@ -37,7 +40,9 @@ const upload = multer({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
+
+// Serve the frontend folder as static
+app.use(express.static(FRONTEND_DIR));
 
 // ─── Database Init ───────────────────────────────────────────────────────
 async function initDB() {
@@ -65,9 +70,7 @@ async function initDB() {
   console.log('✅ Database tables ready');
 }
 
-// ─── Admin Auth Middleware (HMAC-signed cookie) ──────────────────────────
-// No login endpoint is exposed. Admin must visit /admin/access?key=...
-// to set the cookie. The cookie is HMAC-signed with COOKIE_SECRET.
+// ─── Admin Auth (HMAC-signed cookie) ─────────────────────────────────────
 function requireAdmin(req, res, next) {
   const token = req.cookies.admin_session;
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
@@ -92,13 +95,12 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-// ─── ADMIN ACCESS GATE (No login form — URL-only entry) ──────────────────
-// Visit /admin/access?key=YOUR_ADMIN_ACCESS_KEY to gain a 2-hour session.
+// ─── Admin Access Gate (URL-only, no login form) ─────────────────────────
+// Visit: https://your-site.onrender.com/admin/access?key=YOUR_ADMIN_ACCESS_KEY
 app.get('/admin/access', (req, res) => {
   const { key } = req.query;
   if (!key || key !== process.env.ADMIN_ACCESS_KEY) {
-    // Return 404 to make it look like the route doesn't exist
-    return res.status(404).send('Not found');
+    return res.status(404).send('Not found'); // pretend it doesn't exist
   }
 
   const payload = Buffer.from(JSON.stringify({
@@ -119,12 +121,12 @@ app.get('/admin/access', (req, res) => {
     path: '/'
   });
 
-  res.redirect('/admin/');
+  res.redirect('/admin.html');
 });
 
 // ─── PUBLIC API ──────────────────────────────────────────────────────────
 
-// Get all photos (public gallery)
+// Gallery photos
 app.get('/api/photos', async (req, res) => {
   try {
     const result = await pool.query(
@@ -137,7 +139,7 @@ app.get('/api/photos', async (req, res) => {
   }
 });
 
-// Submit a booking
+// Submit booking
 app.post('/api/bookings', async (req, res) => {
   const { name, email, phone, preferred_date, description } = req.body;
 
@@ -160,12 +162,11 @@ app.post('/api/bookings', async (req, res) => {
 
 // ─── PROTECTED ADMIN API ─────────────────────────────────────────────────
 
-// Upload a photo (admin only)
+// Upload photo
 app.post('/api/admin/photos', requireAdmin, upload.single('photo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
   try {
-    // Upload to Cloudinary
     const result = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         { folder: 'tattoo-parlor', resource_type: 'image' },
@@ -189,7 +190,7 @@ app.post('/api/admin/photos', requireAdmin, upload.single('photo'), async (req, 
   }
 });
 
-// Delete a photo (admin only)
+// Delete photo
 app.delete('/api/admin/photos/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
@@ -207,7 +208,7 @@ app.delete('/api/admin/photos/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// Get all bookings (admin only)
+// List bookings
 app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM bookings ORDER BY created_at DESC');
@@ -218,7 +219,7 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
   }
 });
 
-// Update booking status (admin only)
+// Update booking status
 app.patch('/api/admin/bookings/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -235,12 +236,12 @@ app.patch('/api/admin/bookings/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// Serve admin panel (only accessible with valid session)
-app.get('/admin/', requireAdmin, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
+// Protect the admin.html page itself
+app.get('/admin.html', requireAdmin, (req, res) => {
+  res.sendFile(path.join(FRONTEND_DIR, 'admin.html'));
 });
 
-// ─── Start Server ────────────────────────────────────────────────────────
+// ─── Start ───────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   initDB().catch(err => {
