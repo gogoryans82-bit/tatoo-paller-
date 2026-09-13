@@ -311,3 +311,293 @@ select:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px v
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 .text-center { text-align: center; }
+/* ═══════════════════════════════════════════════════════════
+   GALLERY — PRICING & TAGS
+   ═══════════════════════════════════════════════════════════ */
+
+.tag-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  margin-top: -0.5rem;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.85rem;
+  border-radius: 100px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-family: inherit;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: all 0.2s var(--ease);
+  text-transform: lowercase;
+}
+
+.tag-chip:hover {
+  border-color: var(--gold-dim);
+  color: var(--text);
+  background: rgba(201, 162, 39, 0.05);
+}
+
+.tag-chip.active {
+  background: var(--gold);
+  color: #0a0a0a;
+  border-color: var(--gold);
+  font-weight: 600;
+}
+
+.tag-chip.active .tag-count {
+  background: rgba(10, 10, 10, 0.2);
+  color: #0a0a0a;
+}
+
+.tag-count {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 100px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tag-chip.small {
+  font-size: 0.65rem;
+  padding: 0.2rem 0.55rem;
+  cursor: default;
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+}
+
+.tag-chip.small:hover {
+  background: rgba(201, 162, 39, 0.08);
+  border-color: var(--gold-dim);
+  color: var(--gold);
+}
+
+.gallery-grid figure {
+  display: flex;
+  flex-direction: column;
+}
+
+.gallery-card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  height: 100%;
+}
+
+.gallery-card-link:hover { color: inherit; }
+
+.gallery-meta {
+  padding: 0.9rem 1.1rem 1rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  flex: 1;
+}
+
+.gallery-meta figcaption {
+  padding: 0;
+  border: none;
+  font-size: 0.95rem;
+  color: var(--text);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.35;
+}
+
+.gallery-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.gallery-price {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--gold);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-top: auto;
+  padding-top: 0.4rem;
+  border-top: 1px dashed rgba(201, 162, 39, 0.15);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SINGLE PHOTO VIEW
+   ═══════════════════════════════════════════════════════════ */
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-decoration: none;
+  margin-bottom: 1.5rem;
+  transition: color 0.2s var(--ease);
+}
+.back-link:hover { color: var(--gold); }
+
+.photo-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+  gap: 2.5rem;
+  align-items: start;
+}
+
+.photo-canvas {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+
+.photo-main-image {
+  width: 100%;
+  height: auto;
+  display: block;
+  max-height: 75vh;
+  object-fit: contain;
+  background: #0a0a0a;
+}
+
+.photo-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding-top: 0.5rem;
+}
+
+.photo-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  color: var(--text);
+  line-height: 1.15;
+  margin: 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  letter-spacing: -0.01em;
+}
+
+.photo-title::after { display: none; }
+
+.photo-description {
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 0.95rem;
+}
+
+.photo-price-block {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--gold);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+}
+
+.photo-price-label {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+}
+
+.photo-price-value {
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+
+.photo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.photo-actions .btn {
+  width: 100%;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: transparent;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+  padding: 0.85rem 2rem;
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.25s var(--ease);
+  width: 100%;
+}
+.btn-secondary:hover {
+  background: rgba(201, 162, 39, 0.1);
+  transform: translateY(-1px);
+}
+
+.photo-cta {
+  margin-top: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.photo-cta p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 0 0 0.75rem;
+  text-align: center;
+}
+
+/* ─── Responsive ────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .photo-layout {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  .photo-main-image { max-height: 55vh; }
+  .photo-sidebar { gap: 1rem; }
+}
+
+@media (max-width: 480px) {
+  .gallery-meta { padding: 0.75rem 0.85rem; gap: 0.5rem; }
+  .gallery-meta figcaption { font-size: 0.9rem; }
+  .gallery-price { font-size: 1rem; }
+  .tag-chip { font-size: 0.75rem; padding: 0.35rem 0.7rem; }
+  .photo-title { font-size: 1.4rem; padding-bottom: 0.5rem; }
+  .photo-price-value { font-size: 1.5rem; }
+  .photo-actions .btn,
+  .btn-secondary {
+    padding: 0.75rem 1.5rem;
+    font-size: 0.85rem;
+  }
+}
