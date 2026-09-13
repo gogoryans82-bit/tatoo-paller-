@@ -923,7 +923,7 @@ app.get('/api/admin/test-email', requireAdmin, async (req, res) => {
     const info = await transporter.sendMail({
       from: FROM_ADDRESS,
       to: target,
-      subject: '✅ Ink & Iron email test',
+      subject: '✅ Breezy Ink & Iron confirmatory email'
       html: emailWrapper('Email Test', `
         <p>This is a test email from your Ink & Iron booking system.</p>
         <p>If you received this, your email configuration is working correctly.</p>
