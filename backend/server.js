@@ -8,8 +8,8 @@ const cookieParser = require('cookie-parser');
 const crypto       = require('crypto');
 const path         = require('path');
 const fs           = require('fs');
-const nodemailer   = require('nodemailer');
 const PDFDocument  = require('pdfkit');
+const { Resend }   = require('resend');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -51,8 +51,8 @@ const upload = multer({
     else cb(new Error('Only image files are allowed'));
   }
 });
-// ─── Email Transport (Resend — HTTPS, works on Render) ───────────────────
-const { Resend } = require('resend');
+
+// ─── Email Transport (Resend — HTTPS, works on Render free tier) ─────────
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Adapter object so existing transporter.sendMail() calls work unchanged
@@ -122,6 +122,8 @@ function methodLabel(m) {
   };
   return map[(m || '').toLowerCase()] || (m || 'Unknown');
 }
+
+const FROM_ADDRESS = `${process.env.EMAIL_FROM_NAME || 'Ink & Iron'} <onboarding@resend.dev>`;
 
 // ═════════════════════════════════════════════════════════════════════════
 //  ADMIN AUTH — defined before any route that uses it
@@ -407,8 +409,9 @@ app.post('/api/bookings', async (req, res) => {
 
     const booking = result.rows[0];
 
+    // ── Email 1: Customer booking confirmation ─────────────
     transporter.sendMail({
-      from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_USER}>`,
+      from: FROM_ADDRESS,
       to: email,
       subject: `Booking received — reference ${booking.reference_code}`,
       html: emailWrapper('Booking Received', `
@@ -421,23 +424,39 @@ app.post('/api/bookings', async (req, res) => {
         </p>
         <p><a href="${process.env.SITE_URL || ''}/status.html?code=${booking.reference_code}"
               style="color:#c9a227;">Check status →</a></p>
+        <p style="margin-top:1.5rem;">
+          Next step: send your deposit via ${methodLabel(payment_method)} and
+          upload the receipt on the booking page.
+        </p>
       `)
-    }).catch(err => console.error('Customer booking email failed:', err.message));
+    })
+      .then(info => console.log(`✅ Customer booking email sent — ${info.messageId}`))
+      .catch(err => console.error(`❌ Customer booking email failed: ${err.message}`));
 
+    // ── Email 2: Studio booking notification ───────────────
     transporter.sendMail({
-      from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_USER}>`,
+      from: FROM_ADDRESS,
       to: process.env.STUDIO_EMAIL,
       subject: `New booking — ${name} (${methodLabel(payment_method)})`,
       html: emailWrapper('New Booking Request', `
-        <p><strong>Reference:</strong> ${booking.reference_code}</p>
+        <p><strong>Reference:</strong>
+          <span style="color:#c9a227;font-family:monospace;letter-spacing:2px;">
+            ${booking.reference_code}
+          </span>
+        </p>
         <p><strong>Name:</strong> ${escapeEmail(name)}</p>
-        <p><strong>Email:</strong> ${escapeEmail(email)}</p>
+        <p><strong>Email:</strong>
+          <a href="mailto:${escapeEmail(email)}" style="color:#c9a227;">${escapeEmail(email)}</a>
+        </p>
         <p><strong>Phone:</strong> ${escapeEmail(phone) || '—'}</p>
-        <p><strong>Date:</strong> ${preferred_date || '—'}</p>
+        <p><strong>Preferred date:</strong> ${preferred_date || '—'}</p>
         <p><strong>Method:</strong> ${methodLabel(payment_method)}</p>
         <p><strong>Idea:</strong> ${escapeEmail(description) || '—'}</p>
+        <p style="margin-top:1.5rem;">Awaiting receipt upload from customer.</p>
       `)
-    }).catch(err => console.error('Studio notification failed:', err.message));
+    })
+      .then(info => console.log(`✅ Studio booking notification sent — ${info.messageId}`))
+      .catch(err => console.error(`❌ Studio booking notification failed: ${err.message}`));
 
     res.status(201).json({
       success: true,
@@ -485,8 +504,9 @@ async function handleReceiptUpload(req, res, next) {
       [result.secure_url, result.public_id, id]
     );
 
+    // ── Email 3: Customer receipt received ─────────────────
     transporter.sendMail({
-      from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_USER}>`,
+      from: FROM_ADDRESS,
       to: b.email,
       subject: 'Receipt received — awaiting confirmation',
       html: emailWrapper('Receipt Received', `
@@ -494,10 +514,13 @@ async function handleReceiptUpload(req, res, next) {
         <p>Thanks for uploading your receipt. We'll confirm within 24 hours.</p>
         <p>Reference: <span style="color:#c9a227;font-family:monospace;">${b.reference_code}</span></p>
       `)
-    }).catch(err => console.error('Customer receipt email failed:', err.message));
+    })
+      .then(info => console.log(`✅ Customer receipt email sent — ${info.messageId}`))
+      .catch(err => console.error(`❌ Customer receipt email failed: ${err.message}`));
 
+    // ── Email 4: Studio receipt notification ───────────────
     transporter.sendMail({
-      from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_USER}>`,
+      from: FROM_ADDRESS,
       to: process.env.STUDIO_EMAIL,
       subject: `💳 Receipt uploaded — ${b.name} (${methodLabel(b.payment_method)})`,
       html: emailWrapper('New Payment Receipt', `
@@ -519,7 +542,9 @@ async function handleReceiptUpload(req, res, next) {
           </a>
         </p>
       `)
-    }).catch(err => console.error('Studio receipt email failed:', err.message));
+    })
+      .then(info => console.log(`✅ Studio receipt email sent — ${info.messageId}`))
+      .catch(err => console.error(`❌ Studio receipt email failed: ${err.message}`));
 
     res.json({ success: true, message: 'Receipt uploaded.' });
   } catch (err) {
@@ -743,40 +768,48 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch bookings' });
   }
-});// ─── Test email configuration (admin only) ──────────────────────────────
+});
+
+// ─── Test email configuration (admin only) ──────────────────────────────
 app.get('/api/admin/test-email', requireAdmin, async (req, res) => {
   const target = req.query.to || process.env.STUDIO_EMAIL;
   if (!target) {
     return res.status(400).json({ error: 'No recipient — pass ?to=email@example.com' });
   }
 
+  const config = {
+    emailFromName: process.env.EMAIL_FROM_NAME || '(not set)',
+    studioEmail: process.env.STUDIO_EMAIL || '(not set)',
+    hasResendKey: !!process.env.RESEND_API_KEY
+  };
+
   try {
     await transporter.verify();
     const info = await transporter.sendMail({
-      from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_USER}>`,
+      from: FROM_ADDRESS,
       to: target,
       subject: '✅ Ink & Iron email test',
       html: emailWrapper('Email Test', `
         <p>This is a test email from your Ink & Iron booking system.</p>
         <p>If you received this, your email configuration is working correctly.</p>
-        <p>Sent at: ${new Date().toISOString()}</p>
-        <p>From: ${process.env.EMAIL_USER}</p>
+        <p><strong>Sent at:</strong> ${new Date().toISOString()}</p>
+        <p><strong>From:</strong> ${process.env.EMAIL_FROM_NAME} &lt;onboarding@resend.dev&gt;</p>
       `)
     });
     res.json({
       success: true,
+      config,
       messageId: info.messageId,
-      accepted: info.accepted,
-      rejected: info.rejected,
-      response: info.response
+      accepted: info.accepted
     });
   } catch (err) {
     console.error('Test email failed:', err);
     res.status(500).json({
+      success: false,
+      config,
       error: err.message,
       code: err.code,
-      response: err.response,
-      command: err.command
+      response: err.response
     });
   }
 });
@@ -799,30 +832,87 @@ app.post('/api/admin/bookings/:id/approve', requireAdmin, async (req, res, next)
     if (result.rows.length === 0) return res.status(404).json({ error: 'Booking not found.' });
     const b = result.rows[0];
 
+    // ── Email 5: Customer approval confirmation ────────────
     transporter.sendMail({
-      from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_USER}>`,
+      from: FROM_ADDRESS,
       to: b.email,
-      subject: '✅ Your appointment is confirmed',
+      subject: `✅ Appointment confirmed — Receipt #${b.receipt_number}`,
       html: emailWrapper('Appointment Confirmed', `
         <p>Hi ${escapeEmail(b.name)},</p>
-        <p>Your deposit has been verified. Your appointment is confirmed.</p>
-        <p style="font-size:1.5rem;letter-spacing:3px;color:#c9a227;
-                  background:#0a0a0a;padding:1rem;text-align:center;
-                  border-radius:6px;font-family:monospace;">
-          ${b.reference_code}
-        </p>
-        <p>Receipt #: ${b.receipt_number}</p>
-        <p>Amount: $${parseFloat(b.payment_amount || 0).toFixed(2)}</p>
-        <p>Method: ${methodLabel(b.payment_method)}</p>
-        <p style="margin-top:1.5rem;">
+        <p>Your deposit has been verified and your appointment is now
+        <strong>confirmed</strong>. Please keep this email — it serves as
+        your payment confirmation.</p>
+
+        <div style="background:#0a0a0a;border:1px solid #242424;border-radius:8px;
+                    padding:1.5rem;margin:1.5rem 0;text-align:center;">
+          <p style="margin:0;color:#6a6a6a;font-size:0.75rem;
+                    text-transform:uppercase;letter-spacing:2px;">Reference Code</p>
+          <p style="margin:0.5rem 0 0;color:#c9a227;font-family:monospace;
+                    font-size:1.75rem;letter-spacing:5px;font-weight:600;">
+            ${b.reference_code}
+          </p>
+        </div>
+
+        <table style="width:100%;border-collapse:collapse;margin:1.5rem 0;
+                      background:#161616;border-radius:6px;">
+          <tr>
+            <td style="padding:0.75rem 1rem;color:#999;font-size:0.85rem;
+                       border-bottom:1px solid #242424;">Receipt Number</td>
+            <td style="padding:0.75rem 1rem;text-align:right;color:#c9a227;
+                       font-family:monospace;border-bottom:1px solid #242424;">
+              ${b.receipt_number}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0.75rem 1rem;color:#999;font-size:0.85rem;
+                       border-bottom:1px solid #242424;">Amount Paid</td>
+            <td style="padding:0.75rem 1rem;text-align:right;color:#f0ede8;
+                       font-weight:600;border-bottom:1px solid #242424;">
+              $${parseFloat(b.payment_amount || 0).toFixed(2)}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0.75rem 1rem;color:#999;font-size:0.85rem;
+                       border-bottom:1px solid #242424;">Payment Method</td>
+            <td style="padding:0.75rem 1rem;text-align:right;color:#f0ede8;
+                       border-bottom:1px solid #242424;">
+              ${methodLabel(b.payment_method)}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0.75rem 1rem;color:#999;font-size:0.85rem;">Appointment Date</td>
+            <td style="padding:0.75rem 1rem;text-align:right;color:#f0ede8;">
+              ${b.preferred_date
+                ? new Date(b.preferred_date).toLocaleDateString('en-US', {
+                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+                  })
+                : 'To be confirmed'}
+            </td>
+          </tr>
+        </table>
+
+        <p style="margin-top:1.75rem;">
           <a href="${process.env.SITE_URL}/status.html?code=${b.reference_code}"
              style="display:inline-block;background:#c9a227;color:#0a0a0a;
-                    padding:0.75rem 2rem;text-decoration:none;border-radius:4px;font-weight:bold;">
-            View Appointment &amp; Download Receipt
+                    padding:0.85rem 2rem;text-decoration:none;border-radius:4px;
+                    font-weight:bold;font-size:0.95rem;">
+            Download Your Receipt (PDF)
           </a>
         </p>
+
+        <p style="margin-top:1.5rem;color:#999;font-size:0.85rem;">
+          On the status page, enter your reference code and this email address
+          to download the receipt at any time.
+        </p>
+
+        <p style="margin-top:1.5rem;color:#999;font-size:0.85rem;">
+          Need to reschedule? Just reply to this email at least 48 hours before
+          your appointment and we'll move your deposit to a new date.
+        </p>
       `)
-    }).catch(err => console.error('Approval email failed:', err.message));
+    })
+      .then(info => console.log(`✅ Approval email sent to ${b.email} — ${info.messageId}`))
+      .catch(err => console.error(`❌ Approval email failed: ${err.message}`));
 
     res.json({ success: true, booking: b });
   } catch (err) {
@@ -846,16 +936,22 @@ app.post('/api/admin/bookings/:id/reject', requireAdmin, async (req, res, next) 
     if (result.rows.length === 0) return res.status(404).json({ error: 'Booking not found.' });
     const b = result.rows[0];
 
+    // ── Email 6: Customer rejection ────────────────────────
     transporter.sendMail({
-      from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_USER}>`,
+      from: FROM_ADDRESS,
       to: b.email,
       subject: 'Booking update — payment could not be verified',
       html: emailWrapper('Payment Not Verified', `
         <p>Hi ${escapeEmail(b.name)},</p>
         <p>We weren't able to verify your payment.</p>
         <p><strong>Reason:</strong> ${escapeEmail(reason) || 'Receipt could not be matched.'}</p>
+        <p>Reference: <span style="color:#c9a227;font-family:monospace;">${b.reference_code}</span></p>
+        <p>If you believe this is a mistake, please reply to this email with
+        additional details and we'll take another look.</p>
       `)
-    }).catch(err => console.error('Rejection email failed:', err.message));
+    })
+      .then(info => console.log(`✅ Rejection email sent to ${b.email} — ${info.messageId}`))
+      .catch(err => console.error(`❌ Rejection email failed: ${err.message}`));
 
     res.json({ success: true, booking: b });
   } catch (err) {
