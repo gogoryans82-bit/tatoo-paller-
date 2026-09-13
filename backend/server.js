@@ -51,20 +51,45 @@ const upload = multer({
     else cb(new Error('Only image files are allowed'));
   }
 });
+// ─── Email Transport (Resend — HTTPS, works on Render) ───────────────────
+const { Resend } = require('resend');
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-// ─── Email Transport ─────────────────────────────────────────────────────
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_APP_PASSWORD
+// Adapter object so existing transporter.sendMail() calls work unchanged
+const transporter = {
+  verify: async () => {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY is not set');
+    }
+    return true;
+  },
+  sendMail: async ({ from, to, subject, html }) => {
+    const result = await resend.emails.send({
+      from,
+      to,
+      subject,
+      html
+    });
+
+    if (result.error) {
+      throw new Error(
+        result.error.message || JSON.stringify(result.error)
+      );
+    }
+
+    return {
+      messageId: result.data?.id || 'unknown',
+      accepted: [to]
+    };
   }
-});
+};
 
-transporter.verify((err) => {
-  if (err) console.error('❌ Email transport failed:', err.message);
-  else console.log('✅ Email transport ready');
-});
+// Log readiness on startup
+if (!process.env.RESEND_API_KEY) {
+  console.error('❌ RESEND_API_KEY is not set — emails will not send');
+} else {
+  console.log('✅ Email transport ready (Resend)');
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 function emailWrapper(title, bodyHtml) {
