@@ -17,7 +17,6 @@ const PORT = process.env.PORT || 3000;
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
 const BACKEND_DIR  = __dirname;
 
-// ─── Resolve admin HTML files from either backend/ or frontend/ ─────────
 function resolveAdminFile(filename) {
   const backendPath = path.join(BACKEND_DIR, filename);
   if (fs.existsSync(backendPath)) return backendPath;
@@ -52,33 +51,49 @@ const upload = multer({
 });
 
 // ═════════════════════════════════════════════════════════════════════════
-//  EMAIL TRANSPORT — Brevo (HTTPS API, no domain required)
+//  EMAIL TRANSPORT — Brevo
 // ═════════════════════════════════════════════════════════════════════════
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
+const SENDER_NAME = process.env.EMAIL_FROM_NAME || 'Ink & Iron Tattoo Parlor';
+
+const _envFromAddress = (process.env.EMAIL_FROM_ADDRESS || '').trim();
+const _fromMatch = _envFromAddress.match(/<([^>]+)>/);
+
+const SENDER_EMAIL = (
+  (_fromMatch && _fromMatch[1].trim()) ||
+  (_envFromAddress.includes('@') ? _envFromAddress : '') ||
+  process.env.STUDIO_EMAIL ||
+  process.env.BREVO_SENDER_EMAIL ||
+  ''
+).trim();
+
+const FROM_ADDRESS = `${SENDER_NAME} <${SENDER_EMAIL}>`;
+
+console.log(`📧 Email config:
+   BREVO_API_KEY set: ${!!process.env.BREVO_API_KEY}
+   Sender name:       "${SENDER_NAME}"
+   Sender email:      "${SENDER_EMAIL || '(MISSING)'}"
+   Studio email:      "${process.env.STUDIO_EMAIL || '(MISSING)'}"
+   From header:       ${FROM_ADDRESS}`);
+
+if (!process.env.BREVO_API_KEY) {
+  console.error('❌ BREVO_API_KEY is not set — emails will not send');
+} else if (!SENDER_EMAIL) {
+  console.error('❌ No sender email resolved. Set EMAIL_FROM_ADDRESS or STUDIO_EMAIL.');
+} else {
+  console.log('✅ Email transport ready (Brevo)');
+}
+
 const transporter = {
   verify: async () => {
-    if (!process.env.BREVO_API_KEY) {
-      throw new Error('BREVO_API_KEY is not set');
-    }
+    if (!process.env.BREVO_API_KEY) throw new Error('BREVO_API_KEY is not set');
+    if (!SENDER_EMAIL) throw new Error('No sender email configured');
     return true;
   },
-  sendMail: async ({ from, to, subject, html }) => {
-    // Parse "Name <email@domain>" into { name, email }
-    let senderName = process.env.EMAIL_FROM_NAME || 'Ink & Iron';
-    let senderEmail = process.env.STUDIO_EMAIL;
-
-    const fromStr = from || '';
-    const match = fromStr.match(/^"?([^"<]+?)"?\s*<(.+?)>$/);
-    if (match) {
-      senderName = match[1].trim();
-      senderEmail = match[2].trim();
-    } else if (fromStr.includes('@')) {
-      senderEmail = fromStr.trim();
-    }
-
-    if (!senderEmail || !senderEmail.includes('@')) {
-      throw new Error('No valid sender email configured');
+  sendMail: async ({ to, subject, html }) => {
+    if (!SENDER_EMAIL || !SENDER_EMAIL.includes('@')) {
+      throw new Error(`No valid sender email configured (got "${SENDER_EMAIL}")`);
     }
 
     const res = await fetch(BREVO_API_URL, {
@@ -89,7 +104,7 @@ const transporter = {
         'Accept': 'application/json'
       },
       body: JSON.stringify({
-        sender:  { name: senderName, email: senderEmail },
+        sender:  { name: SENDER_NAME, email: SENDER_EMAIL },
         to:      [{ email: to }],
         subject,
         htmlContent: html
@@ -102,22 +117,9 @@ const transporter = {
     }
 
     const data = await res.json().catch(() => ({}));
-    return {
-      messageId: data.messageId || 'unknown',
-      accepted: [to]
-    };
+    return { messageId: data.messageId || 'unknown', accepted: [to] };
   }
 };
-
-if (!process.env.BREVO_API_KEY) {
-  console.error('❌ BREVO_API_KEY is not set — emails will not send');
-} else {
-  console.log('✅ Email transport ready (Brevo)');
-}
-
-// ─── From address (env-driven) ───────────────────────────────────────────
-const FROM_ADDRESS = process.env.EMAIL_FROM_ADDRESS
-  || `${process.env.EMAIL_FROM_NAME || 'Ink & Iron'} <${process.env.STUDIO_EMAIL || ''}>`;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 function emailWrapper(title, bodyHtml) {
@@ -186,14 +188,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // ═════════════════════════════════════════════════════════════════════════
-//  ADMIN PAGE ROUTES — before express.static
+//  ADMIN PAGE ROUTES
 // ═════════════════════════════════════════════════════════════════════════
 app.get('/admin-panel.html', requireAdmin, (req, res) => {
   const filePath = resolveAdminFile('admin-panel.html');
   if (!filePath) {
-    return res.status(500).json({
-      error: 'admin-panel.html not found in backend/ or frontend/'
-    });
+    return res.status(500).json({ error: 'admin-panel.html not found' });
   }
   res.sendFile(filePath);
 });
@@ -201,9 +201,7 @@ app.get('/admin-panel.html', requireAdmin, (req, res) => {
 app.get('/admin-payment-settings.html', requireAdmin, (req, res) => {
   const filePath = resolveAdminFile('admin-payment-settings.html');
   if (!filePath) {
-    return res.status(500).json({
-      error: 'admin-payment-settings.html not found in backend/ or frontend/'
-    });
+    return res.status(500).json({ error: 'admin-payment-settings.html not found' });
   }
   res.sendFile(filePath);
 });
@@ -224,6 +222,9 @@ async function initDB() {
       cloudinary_public_id TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT NOW()
     );
+
+    ALTER TABLE photos ADD COLUMN IF NOT EXISTS price NUMERIC(10,2);
+    ALTER TABLE photos ADD COLUMN IF NOT EXISTS tags TEXT;
 
     CREATE TABLE IF NOT EXISTS bookings (
       id SERIAL PRIMARY KEY,
@@ -310,20 +311,102 @@ async function generateUniqueReference() {
 }
 
 // ═════════════════════════════════════════════════════════════════════════
-//  PUBLIC API
+//  PUBLIC API — PHOTOS
 // ═════════════════════════════════════════════════════════════════════════
+
+// ─── Get all photos ──────────────────────────────────────────────────────
 app.get('/api/photos', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, title, description, cloudinary_url
+      `SELECT id, title, description, cloudinary_url, price, tags
        FROM photos ORDER BY created_at DESC`);
-    res.json(result.rows);
+
+    const rows = result.rows.map(r => ({
+      ...r,
+      tags: r.tags
+        ? r.tags.split(',').map(t => t.trim()).filter(Boolean)
+        : []
+    }));
+
+    res.json(rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch photos' });
   }
 });
 
+// ─── Get single photo ────────────────────────────────────────────────────
+app.get('/api/photos/:id', async (req, res) => {
+  const { id } = req.params;
+  if (!/^\d+$/.test(id)) {
+    return res.status(400).json({ error: 'Invalid photo ID' });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT id, title, description, cloudinary_url,
+              cloudinary_public_id, price, tags, created_at
+       FROM photos WHERE id = $1`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Photo not found' });
+    }
+
+    const row = result.rows[0];
+    res.json({
+      ...row,
+      tags: row.tags
+        ? row.tags.split(',').map(t => t.trim()).filter(Boolean)
+        : []
+    });
+  } catch (err) {
+    console.error('Photo fetch failed:', err);
+    res.status(500).json({ error: 'Failed to fetch photo' });
+  }
+});
+
+// ─── Download a photo (forces download via Cloudinary flag) ──────────────
+app.get('/api/photos/:id/download', async (req, res) => {
+  const { id } = req.params;
+  if (!/^\d+$/.test(id)) {
+    return res.status(400).send('Invalid photo ID');
+  }
+
+  try {
+    const result = await pool.query(
+      'SELECT title, cloudinary_url FROM photos WHERE id = $1',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).send('Photo not found');
+    }
+
+    const { title, cloudinary_url } = result.rows[0];
+
+    const safeTitle = (title || 'tattoo')
+      .replace(/[^a-z0-9]/gi, '-')
+      .replace(/-+/g, '-')
+      .toLowerCase()
+      .slice(0, 50);
+
+    const downloadUrl = cloudinary_url.replace(
+      '/upload/',
+      `/upload/fl_attachment:${safeTitle}`
+    );
+
+    res.redirect(downloadUrl);
+  } catch (err) {
+    console.error('Download failed:', err);
+    res.status(500).send('Download failed');
+  }
+});
+
+// ═════════════════════════════════════════════════════════════════════════
+//  PUBLIC API — PAYMENTS & BOOKINGS
+// ═════════════════════════════════════════════════════════════════════════
 app.get('/api/payment-methods', async (req, res) => {
   try {
     const result = await pool.query('SELECT key, value FROM settings');
@@ -435,7 +518,6 @@ app.post('/api/bookings', async (req, res) => {
 
     const booking = result.rows[0];
 
-    // ── Email 1: Customer booking confirmation ─────────────
     transporter.sendMail({
       from: FROM_ADDRESS,
       to: email,
@@ -459,7 +541,6 @@ app.post('/api/bookings', async (req, res) => {
       .then(info => console.log(`✅ Customer booking email sent — ${info.messageId}`))
       .catch(err => console.error(`❌ Customer booking email failed: ${err.message}`));
 
-    // ── Email 2: Studio booking notification ───────────────
     transporter.sendMail({
       from: FROM_ADDRESS,
       to: process.env.STUDIO_EMAIL,
@@ -529,7 +610,6 @@ async function handleReceiptUpload(req, res, next) {
       [result.secure_url, result.public_id, id]
     );
 
-    // ── Email 3: Customer receipt received ─────────────────
     transporter.sendMail({
       from: FROM_ADDRESS,
       to: b.email,
@@ -543,7 +623,6 @@ async function handleReceiptUpload(req, res, next) {
       .then(info => console.log(`✅ Customer receipt email sent — ${info.messageId}`))
       .catch(err => console.error(`❌ Customer receipt email failed: ${err.message}`));
 
-    // ── Email 4: Studio receipt notification ───────────────
     transporter.sendMail({
       from: FROM_ADDRESS,
       to: process.env.STUDIO_EMAIL,
@@ -746,6 +825,22 @@ async function handlePhotoUpload(req, res, next) {
   const title = (req.body.title || '').trim();
   if (!title) return res.status(400).json({ error: 'Title is required.' });
 
+  // Parse price (optional)
+  let price = null;
+  if (req.body.price !== undefined && req.body.price !== '') {
+    const n = parseFloat(req.body.price);
+    if (isNaN(n) || n < 0) {
+      return res.status(400).json({ error: 'Price must be a positive number.' });
+    }
+    price = n;
+  }
+
+  // Parse and normalize tags
+  const rawTags = (req.body.tags || '').trim();
+  const tags = rawTags
+    ? rawTags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean).join(',')
+    : null;
+
   try {
     const result = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
@@ -755,12 +850,25 @@ async function handlePhotoUpload(req, res, next) {
     });
 
     const dbResult = await pool.query(
-      `INSERT INTO photos (title, description, cloudinary_url, cloudinary_public_id)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [title, req.body.description || '', result.secure_url, result.public_id]
+      `INSERT INTO photos
+         (title, description, cloudinary_url, cloudinary_public_id, price, tags)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [
+        title,
+        req.body.description || '',
+        result.secure_url,
+        result.public_id,
+        price,
+        tags
+      ]
     );
 
-    res.status(201).json(dbResult.rows[0]);
+    const row = dbResult.rows[0];
+    res.status(201).json({
+      ...row,
+      tags: row.tags ? row.tags.split(',') : []
+    });
   } catch (err) {
     console.error('Upload error:', err);
     if (err.http_code && err.message) {
@@ -806,7 +914,8 @@ app.get('/api/admin/test-email', requireAdmin, async (req, res) => {
     emailFromName: process.env.EMAIL_FROM_NAME || '(not set)',
     emailFromAddress: process.env.EMAIL_FROM_ADDRESS || '(not set)',
     studioEmail: process.env.STUDIO_EMAIL || '(not set)',
-    hasBrevoKey: !!process.env.BREVO_API_KEY
+    hasBrevoKey: !!process.env.BREVO_API_KEY,
+    resolvedSender: SENDER_EMAIL || '(MISSING)'
   };
 
   try {
@@ -856,7 +965,6 @@ app.post('/api/admin/bookings/:id/approve', requireAdmin, async (req, res, next)
     if (result.rows.length === 0) return res.status(404).json({ error: 'Booking not found.' });
     const b = result.rows[0];
 
-    // ── Email 5: Customer approval confirmation ────────────
     transporter.sendMail({
       from: FROM_ADDRESS,
       to: b.email,
@@ -960,7 +1068,6 @@ app.post('/api/admin/bookings/:id/reject', requireAdmin, async (req, res, next) 
     if (result.rows.length === 0) return res.status(404).json({ error: 'Booking not found.' });
     const b = result.rows[0];
 
-    // ── Email 6: Customer rejection ────────────────────────
     transporter.sendMail({
       from: FROM_ADDRESS,
       to: b.email,
