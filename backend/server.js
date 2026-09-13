@@ -9,7 +9,6 @@ const crypto       = require('crypto');
 const path         = require('path');
 const fs           = require('fs');
 const PDFDocument  = require('pdfkit');
-const { Resend }   = require('resend');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -52,44 +51,73 @@ const upload = multer({
   }
 });
 
-// ─── Email Transport (Resend — HTTPS, works on Render free tier) ─────────
-const resend = new Resend(process.env.RESEND_API_KEY);
+// ═════════════════════════════════════════════════════════════════════════
+//  EMAIL TRANSPORT — Brevo (HTTPS API, no domain required)
+// ═════════════════════════════════════════════════════════════════════════
+const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
-// Adapter object so existing transporter.sendMail() calls work unchanged
 const transporter = {
   verify: async () => {
-    if (!process.env.RESEND_API_KEY) {
-      throw new Error('RESEND_API_KEY is not set');
+    if (!process.env.BREVO_API_KEY) {
+      throw new Error('BREVO_API_KEY is not set');
     }
     return true;
   },
   sendMail: async ({ from, to, subject, html }) => {
-    const result = await resend.emails.send({
-      from,
-      to,
-      subject,
-      html
-    });
+    // Parse "Name <email@domain>" into { name, email }
+    let senderName = process.env.EMAIL_FROM_NAME || 'Ink & Iron';
+    let senderEmail = process.env.STUDIO_EMAIL;
 
-    if (result.error) {
-      throw new Error(
-        result.error.message || JSON.stringify(result.error)
-      );
+    const fromStr = from || '';
+    const match = fromStr.match(/^"?([^"<]+?)"?\s*<(.+?)>$/);
+    if (match) {
+      senderName = match[1].trim();
+      senderEmail = match[2].trim();
+    } else if (fromStr.includes('@')) {
+      senderEmail = fromStr.trim();
     }
 
+    if (!senderEmail || !senderEmail.includes('@')) {
+      throw new Error('No valid sender email configured');
+    }
+
+    const res = await fetch(BREVO_API_URL, {
+      method: 'POST',
+      headers: {
+        'api-key': process.env.BREVO_API_KEY,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        sender:  { name: senderName, email: senderEmail },
+        to:      [{ email: to }],
+        subject,
+        htmlContent: html
+      })
+    });
+
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      throw new Error(`Brevo ${res.status}: ${errBody.slice(0, 300)}`);
+    }
+
+    const data = await res.json().catch(() => ({}));
     return {
-      messageId: result.data?.id || 'unknown',
+      messageId: data.messageId || 'unknown',
       accepted: [to]
     };
   }
 };
 
-// Log readiness on startup
-if (!process.env.RESEND_API_KEY) {
-  console.error('❌ RESEND_API_KEY is not set — emails will not send');
+if (!process.env.BREVO_API_KEY) {
+  console.error('❌ BREVO_API_KEY is not set — emails will not send');
 } else {
-  console.log('✅ Email transport ready (Resend)');
+  console.log('✅ Email transport ready (Brevo)');
 }
+
+// ─── From address (env-driven) ───────────────────────────────────────────
+const FROM_ADDRESS = process.env.EMAIL_FROM_ADDRESS
+  || `${process.env.EMAIL_FROM_NAME || 'Ink & Iron'} <${process.env.STUDIO_EMAIL || ''}>`;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 function emailWrapper(title, bodyHtml) {
@@ -123,10 +151,8 @@ function methodLabel(m) {
   return map[(m || '').toLowerCase()] || (m || 'Unknown');
 }
 
-const FROM_ADDRESS = `${process.env.EMAIL_FROM_NAME || 'Ink & Iron'} <onboarding@resend.dev>`;
-
 // ═════════════════════════════════════════════════════════════════════════
-//  ADMIN AUTH — defined before any route that uses it
+//  ADMIN AUTH
 // ═════════════════════════════════════════════════════════════════════════
 function requireAdmin(req, res, next) {
   const token = req.cookies.admin_session;
@@ -160,7 +186,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // ═════════════════════════════════════════════════════════════════════════
-//  ADMIN PAGE ROUTES — must be BEFORE express.static
+//  ADMIN PAGE ROUTES — before express.static
 // ═════════════════════════════════════════════════════════════════════════
 app.get('/admin-panel.html', requireAdmin, (req, res) => {
   const filePath = resolveAdminFile('admin-panel.html');
@@ -182,7 +208,7 @@ app.get('/admin-payment-settings.html', requireAdmin, (req, res) => {
   res.sendFile(filePath);
 });
 
-// ─── Static files (everything else) ──────────────────────────────────────
+// ─── Static files ────────────────────────────────────────────────────────
 app.use(express.static(FRONTEND_DIR));
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -452,7 +478,6 @@ app.post('/api/bookings', async (req, res) => {
         <p><strong>Preferred date:</strong> ${preferred_date || '—'}</p>
         <p><strong>Method:</strong> ${methodLabel(payment_method)}</p>
         <p><strong>Idea:</strong> ${escapeEmail(description) || '—'}</p>
-        <p style="margin-top:1.5rem;">Awaiting receipt upload from customer.</p>
       `)
     })
       .then(info => console.log(`✅ Studio booking notification sent — ${info.messageId}`))
@@ -770,7 +795,7 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
   }
 });
 
-// ─── Test email configuration (admin only) ──────────────────────────────
+// ─── Test email endpoint ─────────────────────────────────────────────────
 app.get('/api/admin/test-email', requireAdmin, async (req, res) => {
   const target = req.query.to || process.env.STUDIO_EMAIL;
   if (!target) {
@@ -779,8 +804,9 @@ app.get('/api/admin/test-email', requireAdmin, async (req, res) => {
 
   const config = {
     emailFromName: process.env.EMAIL_FROM_NAME || '(not set)',
+    emailFromAddress: process.env.EMAIL_FROM_ADDRESS || '(not set)',
     studioEmail: process.env.STUDIO_EMAIL || '(not set)',
-    hasResendKey: !!process.env.RESEND_API_KEY
+    hasBrevoKey: !!process.env.BREVO_API_KEY
   };
 
   try {
@@ -793,7 +819,7 @@ app.get('/api/admin/test-email', requireAdmin, async (req, res) => {
         <p>This is a test email from your Ink & Iron booking system.</p>
         <p>If you received this, your email configuration is working correctly.</p>
         <p><strong>Sent at:</strong> ${new Date().toISOString()}</p>
-        <p><strong>From:</strong> ${process.env.EMAIL_FROM_NAME} &lt;onboarding@resend.dev&gt;</p>
+        <p><strong>From:</strong> ${escapeEmail(FROM_ADDRESS)}</p>
       `)
     });
     res.json({
@@ -807,9 +833,7 @@ app.get('/api/admin/test-email', requireAdmin, async (req, res) => {
     res.status(500).json({
       success: false,
       config,
-      error: err.message,
-      code: err.code,
-      response: err.response
+      error: err.message
     });
   }
 });
