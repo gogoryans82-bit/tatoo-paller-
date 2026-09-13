@@ -69,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (document.getElementById('payment-settings-form')) setupPaymentSettingsForm();
   if (document.getElementById('photo-container')) setupPhotoPage();
+   if (document.getElementById('photo-container')) setupPhotoPage();
 });
 
 // ═══════════════════════════════════════════════════════════
