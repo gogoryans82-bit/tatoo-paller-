@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Photo — Breezy Ink & Iron Parlour</title>
+
+  <meta property="og:title" id="og-title" content="Breezy Ink & Iron Parlour">
+  <meta property="og:description" id="og-desc" content="Custom tattoo work by Breezy Ink & Iron Parlour.">
+  <meta property="og:image" id="og-image" content="">
+  <meta property="og:type" content="article">
+
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="/" class="logo">Breezy<span>&</span>Iron</a>
+      <nav>
+        <a href="/">Gallery</a>
+        <a href="/about.html">About</a>
+        <a href="/status.html">Check Status</a>
+        <a href="/booking.html" class="btn-nav">Book Now</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container section">
+    <a href="/" class="back-link">← Back to Gallery</a>
+
+    <div id="photo-container" style="display:none;">
+      <div class="photo-layout">
+
+        <div class="photo-canvas">
+          <img id="photo-img" alt="" class="photo-main-image">
+        </div>
+
+        <div class="photo-sidebar">
+          <h1 id="photo-title" class="photo-title"></h1>
+
+          <div id="photo-tags" class="gallery-tags"></div>
+
+          <p id="photo-description" class="photo-description"></p>
+
+          <div id="photo-price-block" class="photo-price-block" style="display:none;">
+            <p class="photo-price-label">Starting from</p>
+            <p id="photo-price" class="photo-price-value"></p>
+          </div>
+
+          <div class="photo-actions">
+            <a id="download-btn" href="#" class="btn" download>
+              ⬇ Download Image
+            </a>
+            <button id="share-btn" type="button" class="btn-secondary">
+              Copy Link
+            </button>
+          </div>
+
+          <div class="photo-cta">
+            <p>Like this style?</p>
+            <a href="/booking.html" class="btn" style="width:100%;text-decoration:none;">
+              Book a Similar Piece
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <p id="photo-status" class="status">Loading…</p>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; 2026 Breezy Ink &amp; Iron Parlour</p>
+    </div>
+  </footer>
+
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <script src="/script.js"></script>
+</body>
+</html>
