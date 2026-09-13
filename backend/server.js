@@ -13,6 +13,11 @@ const PDFDocument  = require('pdfkit');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ─── Branding ────────────────────────────────────────────────────────────
+const STUDIO_NAME        = 'Breezy Ink & Iron Parlour';
+const STUDIO_EMAIL_HARD  = 'gogoryans82@gmail.com';
+const STUDIO_HOURS       = 'Tuesday–Saturday, 11am–7pm';
+
 // ─── Paths ───────────────────────────────────────────────────────────────
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
 const BACKEND_DIR  = __dirname;
@@ -55,8 +60,9 @@ const upload = multer({
 // ═════════════════════════════════════════════════════════════════════════
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
-const SENDER_NAME = process.env.EMAIL_FROM_NAME || 'Ink & Iron Tattoo Parlor';
+const SENDER_NAME = process.env.EMAIL_FROM_NAME || STUDIO_NAME;
 
+// Resolve sender email — prefer env, fall back to hardcoded Gmail
 const _envFromAddress = (process.env.EMAIL_FROM_ADDRESS || '').trim();
 const _fromMatch = _envFromAddress.match(/<([^>]+)>/);
 
@@ -65,22 +71,23 @@ const SENDER_EMAIL = (
   (_envFromAddress.includes('@') ? _envFromAddress : '') ||
   process.env.STUDIO_EMAIL ||
   process.env.BREVO_SENDER_EMAIL ||
-  ''
+  STUDIO_EMAIL_HARD
 ).trim();
 
+const STUDIO_EMAIL = process.env.STUDIO_EMAIL || STUDIO_EMAIL_HARD;
 const FROM_ADDRESS = `${SENDER_NAME} <${SENDER_EMAIL}>`;
 
 console.log(`📧 Email config:
    BREVO_API_KEY set: ${!!process.env.BREVO_API_KEY}
    Sender name:       "${SENDER_NAME}"
-   Sender email:      "${SENDER_EMAIL || '(MISSING)'}"
-   Studio email:      "${process.env.STUDIO_EMAIL || '(MISSING)'}"
+   Sender email:      "${SENDER_EMAIL}"
+   Studio email:      "${STUDIO_EMAIL}"
    From header:       ${FROM_ADDRESS}`);
 
 if (!process.env.BREVO_API_KEY) {
   console.error('❌ BREVO_API_KEY is not set — emails will not send');
 } else if (!SENDER_EMAIL) {
-  console.error('❌ No sender email resolved. Set EMAIL_FROM_ADDRESS or STUDIO_EMAIL.');
+  console.error('❌ No sender email resolved.');
 } else {
   console.log('✅ Email transport ready (Brevo)');
 }
@@ -125,12 +132,15 @@ const transporter = {
 function emailWrapper(title, bodyHtml) {
   return `
     <div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;background:#0a0a0a;color:#f0ede8;padding:2rem;border-radius:8px;">
-      <h1 style="color:#c9a227;font-size:1.5rem;letter-spacing:2px;text-transform:uppercase;margin:0 0 1.5rem;">Ink &amp; Iron</h1>
+      <h1 style="color:#c9a227;font-size:1.35rem;letter-spacing:2px;text-transform:uppercase;margin:0 0 1.5rem;">Breezy Ink &amp; Iron Parlour</h1>
       <h2 style="color:#f0ede8;font-size:1.3rem;margin:0 0 1rem;">${title}</h2>
       ${bodyHtml}
       <hr style="border:none;border-top:1px solid #242424;margin:2rem 0;">
       <p style="color:#6a6a6a;font-size:0.8rem;margin:0;">
-        Ink &amp; Iron Tattoo Parlor · hello@inkandiron.example
+        Breezy Ink &amp; Iron Parlour · ${STUDIO_EMAIL_HARD}
+      </p>
+      <p style="color:#6a6a6a;font-size:0.75rem;margin:0.35rem 0 0;">
+        ${STUDIO_HOURS}
       </p>
     </div>
   `;
@@ -268,13 +278,13 @@ async function initDB() {
     INSERT INTO settings (key, value) VALUES
       ('deposit_amount', '50'),
       ('payment_paypal_enabled', 'true'),
-      ('payment_paypal_handle', 'yourpaypal@email.com'),
+      ('payment_paypal_handle', 'gogoryans82@gmail.com'),
       ('payment_paypal_note', 'Send via PayPal. Include your reference code in the note.'),
       ('payment_venmo_enabled', 'true'),
       ('payment_venmo_handle', '@YourVenmoHandle'),
       ('payment_venmo_note', 'Open Venmo, tap Pay, and send to the handle above.'),
       ('payment_zelle_enabled', 'true'),
-      ('payment_zelle_handle', 'yourstudio@email.com'),
+      ('payment_zelle_handle', 'gogoryans82@gmail.com'),
       ('payment_zelle_note', 'Send via your bank app''s Zelle feature.'),
       ('payment_cashapp_enabled', 'false'),
       ('payment_cashapp_handle', '$YourCashtag'),
@@ -283,7 +293,7 @@ async function initDB() {
       ('payment_btc_handle', 'bc1q...yourwalletaddress'),
       ('payment_btc_note', 'Send only BTC to this address.'),
       ('payment_bank_enabled', 'false'),
-      ('payment_bank_handle', 'Bank: Your Bank Name\nAccount Name: Your Studio LLC\nAccount #: 0000000000\nRouting #: 000000000'),
+      ('payment_bank_handle', 'Bank: Your Bank Name\nAccount Name: Breezy Ink & Iron Parlour\nAccount #: 0000000000\nRouting #: 000000000'),
       ('payment_bank_note', 'Include your reference code as the payment reference.')
     ON CONFLICT (key) DO NOTHING;
   `);
@@ -314,7 +324,6 @@ async function generateUniqueReference() {
 //  PUBLIC API — PHOTOS
 // ═════════════════════════════════════════════════════════════════════════
 
-// ─── Get all photos ──────────────────────────────────────────────────────
 app.get('/api/photos', async (req, res) => {
   try {
     const result = await pool.query(
@@ -335,7 +344,6 @@ app.get('/api/photos', async (req, res) => {
   }
 });
 
-// ─── Get single photo ────────────────────────────────────────────────────
 app.get('/api/photos/:id', async (req, res) => {
   const { id } = req.params;
   if (!/^\d+$/.test(id)) {
@@ -367,7 +375,6 @@ app.get('/api/photos/:id', async (req, res) => {
   }
 });
 
-// ─── Download a photo (forces download via Cloudinary flag) ──────────────
 app.get('/api/photos/:id/download', async (req, res) => {
   const { id } = req.params;
   if (!/^\d+$/.test(id)) {
@@ -536,6 +543,9 @@ app.post('/api/bookings', async (req, res) => {
           Next step: send your deposit via ${methodLabel(payment_method)} and
           upload the receipt on the booking page.
         </p>
+        <p style="margin-top:1rem;color:#999;font-size:0.85rem;">
+          Questions? Reply to this email or reach us at ${STUDIO_EMAIL_HARD}.
+        </p>
       `)
     })
       .then(info => console.log(`✅ Customer booking email sent — ${info.messageId}`))
@@ -543,7 +553,7 @@ app.post('/api/bookings', async (req, res) => {
 
     transporter.sendMail({
       from: FROM_ADDRESS,
-      to: process.env.STUDIO_EMAIL,
+      to: STUDIO_EMAIL,
       subject: `New booking — ${name} (${methodLabel(payment_method)})`,
       html: emailWrapper('New Booking Request', `
         <p><strong>Reference:</strong>
@@ -618,6 +628,9 @@ async function handleReceiptUpload(req, res, next) {
         <p>Hi ${escapeEmail(b.name)},</p>
         <p>Thanks for uploading your receipt. We'll confirm within 24 hours.</p>
         <p>Reference: <span style="color:#c9a227;font-family:monospace;">${b.reference_code}</span></p>
+        <p style="margin-top:1.25rem;color:#999;font-size:0.85rem;">
+          Questions? Reach us at ${STUDIO_EMAIL_HARD}.
+        </p>
       `)
     })
       .then(info => console.log(`✅ Customer receipt email sent — ${info.messageId}`))
@@ -625,7 +638,7 @@ async function handleReceiptUpload(req, res, next) {
 
     transporter.sendMail({
       from: FROM_ADDRESS,
-      to: process.env.STUDIO_EMAIL,
+      to: STUDIO_EMAIL,
       subject: `💳 Receipt uploaded — ${b.name} (${methodLabel(b.payment_method)})`,
       html: emailWrapper('New Payment Receipt', `
         <p><strong>${escapeEmail(b.name)}</strong> uploaded a receipt.</p>
@@ -739,39 +752,100 @@ app.get('/api/appointments/receipt.pdf', async (req, res) => {
     doc.pipe(res);
 
     doc.rect(0, 0, doc.page.width, 6).fill('#c9a227');
-    doc.fillColor('#0a0a0a').fontSize(26).font('Helvetica-Bold').text('INK & IRON', 50, 60, { characterSpacing: 2 });
-    doc.fontSize(10).font('Helvetica').fillColor('#666').text('TATTOO PARLOR', 50, 92, { characterSpacing: 3 });
-    doc.fontSize(24).font('Helvetica-Bold').fillColor('#0a0a0a').text('RECEIPT', 400, 60, { align: 'right', width: 145 });
-    doc.fontSize(10).font('Helvetica').fillColor('#666').text(`#${b.receipt_number || b.reference_code}`, 400, 92, { align: 'right', width: 145 });
+    doc.fillColor('#0a0a0a').fontSize(20).font('Helvetica-Bold')
+       .text('BREEZY INK & IRON PARLOUR', 50, 60, { characterSpacing: 1 });
+    doc.fontSize(10).font('Helvetica').fillColor('#666')
+       .text('CUSTOM TATTOO STUDIO', 50, 88, { characterSpacing: 3 });
+    doc.fillColor('#666').fontSize(9)
+       .text(STUDIO_EMAIL_HARD, 50, 106);
+    doc.fillColor('#666').fontSize(8)
+       .text(STUDIO_HOURS, 50, 120);
+
+    doc.fontSize(24).font('Helvetica-Bold').fillColor('#0a0a0a')
+       .text('RECEIPT', 400, 60, { align: 'right', width: 145 });
+    doc.fontSize(10).font('Helvetica').fillColor('#666')
+       .text(`#${b.receipt_number || b.reference_code}`, 400, 92,
+             { align: 'right', width: 145 });
+    doc.fontSize(9)
+       .text(new Date(b.approved_at || Date.now()).toLocaleDateString('en-US', {
+         year: 'numeric', month: 'long', day: 'numeric'
+       }), 400, 110, { align: 'right', width: 145 });
+
     doc.moveTo(50, 145).lineTo(545, 145).strokeColor('#e0e0e0').stroke();
 
-    doc.fontSize(9).fillColor('#999').text('BILLED TO', 50, 165, { characterSpacing: 1 });
-    doc.fontSize(12).font('Helvetica-Bold').fillColor('#0a0a0a').text(b.name, 50, 180);
-    doc.fontSize(10).font('Helvetica').fillColor('#444').text(b.email, 50, 198);
-    doc.fontSize(13).font('Helvetica-Bold').fillColor('#c9a227').text(b.reference_code, 350, 180, { characterSpacing: 2 });
+    doc.fontSize(9).fillColor('#999')
+       .text('BILLED TO', 50, 165, { characterSpacing: 1 });
+    doc.fontSize(12).font('Helvetica-Bold').fillColor('#0a0a0a')
+       .text(b.name, 50, 180);
+    doc.fontSize(10).font('Helvetica').fillColor('#444')
+       .text(b.email, 50, 198);
+    if (b.phone) doc.text(b.phone, 50, 213);
+
+    doc.fontSize(9).font('Helvetica').fillColor('#999')
+       .text('APPOINTMENT REFERENCE', 350, 165, { characterSpacing: 1 });
+    doc.fontSize(13).font('Helvetica-Bold').fillColor('#c9a227')
+       .text(b.reference_code, 350, 180, { characterSpacing: 2 });
 
     let y = 260;
+    doc.fontSize(9).font('Helvetica').fillColor('#999')
+       .text('PAYMENT DETAILS', 50, y, { characterSpacing: 1 });
+    y += 20;
+
     doc.rect(50, y, 495, 1).fill('#e0e0e0');
     y += 12;
+
     doc.fontSize(10).font('Helvetica').fillColor('#0a0a0a')
        .text('Tattoo appointment deposit', 50, y)
-       .text(`$${parseFloat(b.payment_amount || 0).toFixed(2)}`, 400, y, { align: 'right', width: 145 });
+       .text(`$${parseFloat(b.payment_amount || 0).toFixed(2)}`, 400, y,
+             { align: 'right', width: 145 });
     y += 22;
-    doc.fontSize(9).fillColor('#666').text(`Method: ${methodLabel(b.payment_method).toUpperCase()}`, 50, y);
+
+    doc.fontSize(9).fillColor('#666')
+       .text(`Method: ${methodLabel(b.payment_method).toUpperCase()}`, 50, y);
     y += 16;
-    doc.text(`Preferred date: ${b.preferred_date ? new Date(b.preferred_date).toLocaleDateString('en-US') : 'TBC'}`, 50, y);
+
+    doc.text(`Preferred date: ${b.preferred_date
+      ? new Date(b.preferred_date).toLocaleDateString('en-US', {
+          year: 'numeric', month: 'long', day: 'numeric'
+        })
+      : 'To be confirmed'}`, 50, y);
+    y += 16;
+
+    doc.text(`Confirmed: ${new Date(b.approved_at).toLocaleString('en-US')}`,
+             50, y);
     y += 30;
+
     doc.moveTo(50, y).lineTo(545, y).strokeColor('#e0e0e0').stroke();
     y += 15;
-    doc.fontSize(10).font('Helvetica-Bold').fillColor('#666').text('TOTAL PAID', 350, y);
-    doc.fontSize(20).fillColor('#0a0a0a').text(`$${parseFloat(b.payment_amount || 0).toFixed(2)}`, 350, y + 16, { align: 'right', width: 195 });
 
+    doc.fontSize(10).font('Helvetica-Bold').fillColor('#666')
+       .text('TOTAL PAID', 350, y, { characterSpacing: 1 });
+    doc.fontSize(20).fillColor('#0a0a0a')
+       .text(`$${parseFloat(b.payment_amount || 0).toFixed(2)}`, 350, y + 16,
+             { align: 'right', width: 195 });
+
+    if (b.description) {
+      y += 80;
+      doc.fontSize(9).font('Helvetica').fillColor('#999')
+         .text('DESIGN NOTES', 50, y, { characterSpacing: 1 });
+      doc.fontSize(10).fillColor('#333')
+         .text(b.description, 50, y + 16, { width: 495, lineGap: 3 });
+    }
+
+    const stampY = doc.page.height - 140;
     doc.save();
-    doc.translate(430, doc.page.height - 140);
+    doc.translate(430, stampY);
     doc.rotate(-12);
     doc.rect(-70, -22, 140, 44).lineWidth(2).strokeColor('#3a8a5a').stroke();
-    doc.fontSize(14).font('Helvetica-Bold').fillColor('#3a8a5a').text('CONFIRMED', -70, -8, { width: 140, align: 'center' });
+    doc.fontSize(14).font('Helvetica-Bold').fillColor('#3a8a5a')
+       .text('CONFIRMED', -70, -8, { width: 140, align: 'center' });
     doc.restore();
+
+    doc.fontSize(8).fillColor('#999')
+       .text('Thank you for choosing Breezy Ink & Iron Parlour.',
+             50, doc.page.height - 80, { width: 495, align: 'center' })
+       .text(`For questions: ${STUDIO_EMAIL_HARD}`,
+             50, doc.page.height - 65, { width: 495, align: 'center' });
 
     doc.end();
   } catch (err) {
@@ -825,7 +899,6 @@ async function handlePhotoUpload(req, res, next) {
   const title = (req.body.title || '').trim();
   if (!title) return res.status(400).json({ error: 'Title is required.' });
 
-  // Parse price (optional)
   let price = null;
   if (req.body.price !== undefined && req.body.price !== '') {
     const n = parseFloat(req.body.price);
@@ -835,7 +908,6 @@ async function handlePhotoUpload(req, res, next) {
     price = n;
   }
 
-  // Parse and normalize tags
   const rawTags = (req.body.tags || '').trim();
   const tags = rawTags
     ? rawTags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean).join(',')
@@ -905,15 +977,15 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
 
 // ─── Test email endpoint ─────────────────────────────────────────────────
 app.get('/api/admin/test-email', requireAdmin, async (req, res) => {
-  const target = req.query.to || process.env.STUDIO_EMAIL;
+  const target = req.query.to || STUDIO_EMAIL;
   if (!target) {
     return res.status(400).json({ error: 'No recipient — pass ?to=email@example.com' });
   }
 
   const config = {
-    emailFromName: process.env.EMAIL_FROM_NAME || '(not set)',
-    emailFromAddress: process.env.EMAIL_FROM_ADDRESS || '(not set)',
-    studioEmail: process.env.STUDIO_EMAIL || '(not set)',
+    emailFromName: SENDER_NAME,
+    emailFromAddress: FROM_ADDRESS,
+    studioEmail: STUDIO_EMAIL,
     hasBrevoKey: !!process.env.BREVO_API_KEY,
     resolvedSender: SENDER_EMAIL || '(MISSING)'
   };
@@ -923,12 +995,13 @@ app.get('/api/admin/test-email', requireAdmin, async (req, res) => {
     const info = await transporter.sendMail({
       from: FROM_ADDRESS,
       to: target,
-      subject: '✅ Breezy Ink & Iron confirmatory email'
+      subject: '✅ Breezy Ink & Iron email test',
       html: emailWrapper('Email Test', `
-        <p>This is a test email from your Ink & Iron booking system.</p>
+        <p>This is a test email from Breezy Ink &amp; Iron Parlour's booking system.</p>
         <p>If you received this, your email configuration is working correctly.</p>
         <p><strong>Sent at:</strong> ${new Date().toISOString()}</p>
         <p><strong>From:</strong> ${escapeEmail(FROM_ADDRESS)}</p>
+        <p><strong>Studio contact:</strong> ${STUDIO_EMAIL_HARD}</p>
       `)
     });
     res.json({
@@ -1041,6 +1114,10 @@ app.post('/api/admin/bookings/:id/approve', requireAdmin, async (req, res, next)
           Need to reschedule? Just reply to this email at least 48 hours before
           your appointment and we'll move your deposit to a new date.
         </p>
+
+        <p style="margin-top:1.5rem;color:#999;font-size:0.85rem;">
+          Questions? Reach us at ${STUDIO_EMAIL_HARD}.
+        </p>
       `)
     })
       .then(info => console.log(`✅ Approval email sent to ${b.email} — ${info.messageId}`))
@@ -1079,6 +1156,9 @@ app.post('/api/admin/bookings/:id/reject', requireAdmin, async (req, res, next) 
         <p>Reference: <span style="color:#c9a227;font-family:monospace;">${b.reference_code}</span></p>
         <p>If you believe this is a mistake, please reply to this email with
         additional details and we'll take another look.</p>
+        <p style="margin-top:1.25rem;color:#999;font-size:0.85rem;">
+          Questions? Reach us at ${STUDIO_EMAIL_HARD}.
+        </p>
       `)
     })
       .then(info => console.log(`✅ Rejection email sent to ${b.email} — ${info.messageId}`))
@@ -1168,7 +1248,7 @@ app.use((err, req, res, next) => {
 
 // ─── Start ───────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🚀 Breezy Ink & Iron Parlour server running on port ${PORT}`);
   initDB().catch(err => {
     console.error('❌ Database init failed:', err);
     process.exit(1);
