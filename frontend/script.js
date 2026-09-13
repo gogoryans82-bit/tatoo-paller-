@@ -67,44 +67,251 @@ document.addEventListener('DOMContentLoaded', () => {
     loadAdminPhotos();
     loadBookings();
   }
-  if (document.getElementById('payment-settings-form')) {
-    setupPaymentSettingsForm();
-  }
+  if (document.getElementById('payment-settings-form')) setupPaymentSettingsForm();
+  if (document.getElementById('photo-container')) setupPhotoPage();
 });
 
 // ═══════════════════════════════════════════════════════════
-//  PUBLIC GALLERY
+//  PUBLIC GALLERY — with price, tags, and filter
 // ═══════════════════════════════════════════════════════════
 async function loadGallery() {
   const grid = document.getElementById('gallery-grid');
   const status = document.getElementById('gallery-status');
+  const filterBar = document.getElementById('tag-filter');
   if (!grid) return;
+
+  // Read ?tag= from URL for deep-linking
+  const params = new URLSearchParams(location.search);
+  let initialTag = params.get('tag');
+  if (initialTag) initialTag = initialTag.toLowerCase().trim();
+
+  let photos = [];
 
   try {
     const res = await fetch('/api/photos');
-    const photos = await res.json();
+    photos = await res.json();
+  } catch {
+    status.textContent = 'Could not load gallery.';
+    return;
+  }
 
-    if (photos.length === 0) {
-      status.textContent = 'No photos yet. Check back soon!';
+  if (photos.length === 0) {
+    status.textContent = 'No photos yet. Check back soon!';
+    return;
+  }
+
+  status.textContent = '';
+
+  // ── Build tag list ────────────────────────────────────
+  const tagCounts = {};
+  photos.forEach(p => {
+    (p.tags || []).forEach(t => {
+      tagCounts[t] = (tagCounts[t] || 0) + 1;
+    });
+  });
+  const allTags = Object.keys(tagCounts).sort();
+
+  let activeTag = initialTag || null;
+
+  // ── Render filter bar ─────────────────────────────────
+  function renderFilterBar() {
+    if (allTags.length === 0) {
+      filterBar.style.display = 'none';
+      return;
+    }
+    filterBar.style.display = 'flex';
+    filterBar.innerHTML = `
+      <button type="button" class="tag-chip ${activeTag === null ? 'active' : ''}"
+              data-tag="">All <span class="tag-count">${photos.length}</span></button>
+      ${allTags.map(tag => `
+        <button type="button" class="tag-chip ${activeTag === tag ? 'active' : ''}"
+                data-tag="${escapeHtml(tag)}">
+          ${escapeHtml(tag)}
+          <span class="tag-count">${tagCounts[tag]}</span>
+        </button>
+      `).join('')}
+    `;
+
+    filterBar.querySelectorAll('.tag-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeTag = btn.dataset.tag || null;
+        renderFilterBar();
+        renderGrid();
+      });
+    });
+  }
+
+  // ── Render grid ───────────────────────────────────────
+  function renderGrid() {
+    grid.innerHTML = '';
+    const visible = activeTag
+      ? photos.filter(p => (p.tags || []).includes(activeTag))
+      : photos;
+
+    if (visible.length === 0) {
+      grid.innerHTML = `<p style="color:#999;grid-column:1/-1;">
+        No photos with that tag yet.
+      </p>`;
       return;
     }
 
-    status.textContent = '';
-    photos.forEach(p => {
+    visible.forEach(p => {
       const fig = document.createElement('figure');
+
+      const priceHtml = p.price != null
+        ? `<div class="gallery-price">$${parseFloat(p.price).toFixed(2)}</div>`
+        : '';
+
+      const tagsHtml = (p.tags || []).length
+        ? `<div class="gallery-tags">
+             ${p.tags.map(t => `<span class="tag-chip small" data-tag="${escapeHtml(t)}">${escapeHtml(t)}</span>`).join('')}
+           </div>`
+        : '';
+
       fig.innerHTML = `
-        <img src="${p.cloudinary_url}" alt="${escapeHtml(p.title)}" loading="lazy">
-        <figcaption>${escapeHtml(p.title)}</figcaption>
+        <a href="/photo.html?id=${p.id}" class="gallery-card-link">
+          <img src="${p.cloudinary_url}" alt="${escapeHtml(p.title)}" loading="lazy">
+          <div class="gallery-meta">
+            <figcaption>${escapeHtml(p.title)}</figcaption>
+            ${tagsHtml}
+            ${priceHtml}
+          </div>
+        </a>
       `;
+
+      // Tag chip clicks should filter, not navigate
+      fig.querySelectorAll('.tag-chip').forEach(chip => {
+        chip.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const tag = (chip.dataset.tag || '').toLowerCase();
+          if (!tag) return;
+
+          // Toggle filter
+          activeTag = (activeTag === tag) ? null : tag;
+          renderFilterBar();
+          renderGrid();
+          filterBar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+      });
+
       grid.appendChild(fig);
     });
-  } catch {
-    status.textContent = 'Could not load gallery.';
   }
+
+  renderFilterBar();
+  renderGrid();
 }
 
 // ═══════════════════════════════════════════════════════════
-//  BOOKING FORM + PAY NOW
+//  SINGLE PHOTO VIEW
+// ═══════════════════════════════════════════════════════════
+async function setupPhotoPage() {
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id');
+
+  const container = document.getElementById('photo-container');
+  const statusEl  = document.getElementById('photo-status');
+
+  if (!id) {
+    statusEl.textContent = 'No photo specified.';
+    return;
+  }
+  if (!/^\d+$/.test(id)) {
+    statusEl.textContent = 'Invalid photo link.';
+    return;
+  }
+
+  let photo;
+  try {
+    const res = await fetch(`/api/photos/${id}`);
+    if (res.status === 404) {
+      statusEl.textContent = 'Photo not found.';
+      return;
+    }
+    if (!res.ok) {
+      statusEl.textContent = 'Could not load photo.';
+      return;
+    }
+    photo = await res.json();
+  } catch {
+    statusEl.textContent = 'Network error. Please try again.';
+    return;
+  }
+
+  const img         = document.getElementById('photo-img');
+  const title       = document.getElementById('photo-title');
+  const tagsWrap    = document.getElementById('photo-tags');
+  const descEl      = document.getElementById('photo-description');
+  const priceBlock  = document.getElementById('photo-price-block');
+  const priceEl     = document.getElementById('photo-price');
+  const downloadBtn = document.getElementById('download-btn');
+  const shareBtn    = document.getElementById('share-btn');
+
+  document.title = `${photo.title} — Ink & Iron`;
+  img.src = photo.cloudinary_url;
+  img.alt = photo.title;
+  title.textContent = photo.title;
+
+  document.getElementById('og-title').setAttribute('content', photo.title);
+  document.getElementById('og-image').setAttribute('content', photo.cloudinary_url);
+  document.getElementById('og-desc').setAttribute(
+    'content',
+    photo.description || 'Custom tattoo by Ink & Iron.'
+  );
+
+  if ((photo.tags || []).length) {
+    tagsWrap.innerHTML = photo.tags
+      .map(t => `<a href="/?tag=${encodeURIComponent(t)}"
+                    class="tag-chip"
+                    style="text-decoration:none;">
+                    ${escapeHtml(t)}
+                 </a>`)
+      .join('');
+  } else {
+    tagsWrap.style.display = 'none';
+  }
+
+  if (photo.description) {
+    descEl.textContent = photo.description;
+  } else {
+    descEl.style.display = 'none';
+  }
+
+  if (photo.price != null) {
+    priceBlock.style.display = 'block';
+    priceEl.textContent = `$${parseFloat(photo.price).toFixed(2)}`;
+  }
+
+  downloadBtn.href = `/api/photos/${photo.id}/download`;
+
+  shareBtn.addEventListener('click', async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: photo.title, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        shareBtn.textContent = '✓ Link copied';
+        setTimeout(() => { shareBtn.textContent = 'Copy Link'; }, 1800);
+      }
+    } catch {
+      const tmp = document.createElement('input');
+      tmp.value = url;
+      document.body.appendChild(tmp);
+      tmp.select();
+      try { document.execCommand('copy'); shareBtn.textContent = '✓ Link copied'; } catch {}
+      tmp.remove();
+      setTimeout(() => { shareBtn.textContent = 'Copy Link'; }, 1800);
+    }
+  });
+
+  statusEl.style.display = 'none';
+  container.style.display = 'block';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  BOOKING FORM
 // ═══════════════════════════════════════════════════════════
 async function setupBookingForm() {
   const form = document.getElementById('booking-form');
@@ -143,12 +350,8 @@ async function setupBookingForm() {
   }
 
   const ICONS = {
-    paypal:  '💳',
-    venmo:   '🅥',
-    zelle:   '🏦',
-    cashapp: '💵',
-    btc:     '₿',
-    bank:    '🏛'
+    paypal:  '💳', venmo: '🅥', zelle: '🏦',
+    cashapp: '💵', btc: '₿', bank: '🏛'
   };
 
   form.addEventListener('submit', async (e) => {
@@ -294,7 +497,7 @@ async function setupBookingForm() {
     }
   }
 
- receiptForm.addEventListener('submit', async (e) => {
+  receiptForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!currentBookingId) {
       receiptStatus.textContent = '❌ No active booking. Please submit the form first.';
@@ -534,12 +737,15 @@ async function loadAdminPhotos() {
     }
 
     const table = document.createElement('table');
-    table.innerHTML = '<tr><th>Preview</th><th>Title</th><th>Actions</th></tr>';
+    table.innerHTML = '<tr><th>Preview</th><th>Title</th><th>Price</th><th>Tags</th><th>Actions</th></tr>';
     photos.forEach(p => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><img src="${p.cloudinary_url}" alt="${escapeHtml(p.title)}"></td>
         <td>${escapeHtml(p.title)}</td>
+        <td>${p.price != null ? '$' + parseFloat(p.price).toFixed(2) : '—'}</td>
+        <td>${(p.tags || []).map(t =>
+              `<span class="tag-chip small">${escapeHtml(t)}</span>`).join(' ')}</td>
         <td><button class="del-btn" data-id="${p.id}" data-title="${escapeHtml(p.title)}">Delete</button></td>
       `;
       table.appendChild(tr);
