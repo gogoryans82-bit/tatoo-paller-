@@ -984,3 +984,110 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
+
+// ═══════════════════════════════════════════════════════════
+//  SINGLE PHOTO VIEW
+// ═══════════════════════════════════════════════════════════
+async function setupPhotoPage() {
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id');
+
+  const container = document.getElementById('photo-container');
+  const statusEl  = document.getElementById('photo-status');
+
+  if (!id) {
+    statusEl.textContent = 'No photo specified.';
+    return;
+  }
+  if (!/^\d+$/.test(id)) {
+    statusEl.textContent = 'Invalid photo link.';
+    return;
+  }
+
+  let photo;
+  try {
+    const res = await fetch(`/api/photos/${id}`);
+    if (res.status === 404) {
+      statusEl.textContent = 'Photo not found.';
+      return;
+    }
+    if (!res.ok) {
+      statusEl.textContent = 'Could not load photo.';
+      return;
+    }
+    photo = await res.json();
+  } catch {
+    statusEl.textContent = 'Network error. Please try again.';
+    return;
+  }
+
+  const img         = document.getElementById('photo-img');
+  const title       = document.getElementById('photo-title');
+  const tagsWrap    = document.getElementById('photo-tags');
+  const descEl      = document.getElementById('photo-description');
+  const priceBlock  = document.getElementById('photo-price-block');
+  const priceEl     = document.getElementById('photo-price');
+  const downloadBtn = document.getElementById('download-btn');
+  const shareBtn    = document.getElementById('share-btn');
+
+  document.title = `${photo.title} — Breezy Ink & Iron Parlour`;
+  img.src = photo.cloudinary_url;
+  img.alt = photo.title;
+  title.textContent = photo.title;
+
+  document.getElementById('og-title').setAttribute('content', photo.title);
+  document.getElementById('og-image').setAttribute('content', photo.cloudinary_url);
+  document.getElementById('og-desc').setAttribute(
+    'content',
+    photo.description || 'Custom tattoo by Breezy Ink & Iron Parlour.'
+  );
+
+  if ((photo.tags || []).length) {
+    tagsWrap.innerHTML = photo.tags
+      .map(t => `<a href="/?tag=${encodeURIComponent(t)}"
+                    class="tag-chip"
+                    style="text-decoration:none;">
+                    ${escapeHtml(t)}
+                 </a>`)
+      .join('');
+  } else {
+    tagsWrap.style.display = 'none';
+  }
+
+  if (photo.description) {
+    descEl.textContent = photo.description;
+  } else {
+    descEl.style.display = 'none';
+  }
+
+  if (photo.price != null) {
+    priceBlock.style.display = 'block';
+    priceEl.textContent = `$${parseFloat(photo.price).toFixed(2)}`;
+  }
+
+  downloadBtn.href = `/api/photos/${photo.id}/download`;
+
+  shareBtn.addEventListener('click', async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: photo.title, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        shareBtn.textContent = '✓ Link copied';
+        setTimeout(() => { shareBtn.textContent = 'Copy Link'; }, 1800);
+      }
+    } catch {
+      const tmp = document.createElement('input');
+      tmp.value = url;
+      document.body.appendChild(tmp);
+      tmp.select();
+      try { document.execCommand('copy'); shareBtn.textContent = '✓ Link copied'; } catch {}
+      tmp.remove();
+      setTimeout(() => { shareBtn.textContent = 'Copy Link'; }, 1800);
+    }
+  });
+
+  statusEl.style.display = 'none';
+  container.style.display = 'block';
+}
