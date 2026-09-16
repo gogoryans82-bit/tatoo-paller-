@@ -1,0 +1,15 @@
+{
+  "appId": "com.breezyinkandiron.app",
+  "appName": "Breezy Ink & Iron",
+  "webDir": "frontend",
+  "server": {
+    "url": "https://breezy-tatoo-parlour.onrender.com",
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  }
+}

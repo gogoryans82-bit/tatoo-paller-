@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Breezy Ink &amp; Iron</string>
+    <string name="title_activity_main">Breezy Ink &amp; Iron</string>
+    <string name="package_name">com.breezyinkandiron.app</string>
+    <string name="custom_url_scheme">com.breezyinkandiron.app</string>
+</resources>
