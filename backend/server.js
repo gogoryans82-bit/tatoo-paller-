@@ -158,7 +158,9 @@ function methodLabel(m) {
     zelle:   'Zelle',
     cashapp: 'Cash App',
     btc:     'Bitcoin',
-    bank:    'Bank Transfer'
+    bank:    'Bank Transfer',
+    bsb: 'Australian Bank Transfer', 
+    payid: 'PayID'
   };
   return map[(m || '').toLowerCase()] || (m || 'Unknown');
 }
@@ -292,9 +294,19 @@ async function initDB() {
       ('payment_btc_enabled', 'false'),
       ('payment_btc_handle', 'bc1q...yourwalletaddress'),
       ('payment_btc_note', 'Send only BTC to this address.'),
-      ('payment_bank_enabled', 'false'),
+            ('payment_bank_enabled', 'false'),
       ('payment_bank_handle', 'Bank: Your Bank Name\nAccount Name: Breezy Ink & Iron Parlour\nAccount #: 0000000000\nRouting #: 000000000'),
-      ('payment_bank_note', 'Include your reference code as the payment reference.')
+      ('payment_bank_note', 'Include your reference code as the payment reference.'),
+      ('payment_bsb_enabled', 'false'),
+      ('payment_bsb_account_name', 'Breezy Ink & Iron Parlour'),
+      ('payment_bsb_bank_name', ''),
+      ('payment_bsb_number', ''),
+      ('payment_bsb_account_number', ''),
+      ('payment_bsb_note', 'Use your booking reference as the payment description.'),
+      ('payment_payid_enabled', 'false'),
+      ('payment_payid_type', 'email'),
+      ('payment_payid_value', ''),
+      ('payment_payid_note', 'Send via PayID from your banking app. Reference your booking code.')
     ON CONFLICT (key) DO NOTHING;
   `);
   console.log('✅ Database tables ready');
@@ -474,6 +486,35 @@ app.get('/api/payment-methods', async (req, res) => {
         multiLine: true
       });
     }
+        if (s.payment_bsb_enabled === 'true') {
+      const bsbParts = [];
+      if (s.payment_bsb_account_name)    bsbParts.push(`Account Name: ${s.payment_bsb_account_name}`);
+      if (s.payment_bsb_bank_name)       bsbParts.push(`Bank: ${s.payment_bsb_bank_name}`);
+      if (s.payment_bsb_number)          bsbParts.push(`BSB: ${s.payment_bsb_number}`);
+      if (s.payment_bsb_account_number)  bsbParts.push(`Account #: ${s.payment_bsb_account_number}`);
+
+      if (bsbParts.length > 0) {
+        methods.push({
+          id: 'bsb',
+          label: 'Australian Bank Transfer',
+          handle: bsbParts.join('\n'),
+          note: s.payment_bsb_note || '',
+          link: null,
+          multiLine: true
+        });
+      }
+    }
+
+    if (s.payment_payid_enabled === 'true' && s.payment_payid_value) {
+      methods.push({
+        id: 'payid',
+        label: 'PayID',
+        handle: s.payment_payid_value,
+        note: s.payment_payid_note || '',
+        link: null,
+        multiLine: false
+      });
+    }
 
     res.json({
       methods,
@@ -504,6 +545,8 @@ app.post('/api/bookings', async (req, res) => {
   if (s.payment_cashapp_enabled === 'true') enabledMethods.push('cashapp');
   if (s.payment_btc_enabled === 'true')     enabledMethods.push('btc');
   if (s.payment_bank_enabled === 'true')    enabledMethods.push('bank');
+    if (s.payment_bsb_enabled === 'true')     enabledMethods.push('bsb');
+  if (s.payment_payid_enabled === 'true')   enabledMethods.push('payid');
 
   if (!payment_method || !enabledMethods.includes(payment_method)) {
     return res.status(400).json({ error: 'Invalid or unavailable payment method.' });
@@ -1196,7 +1239,12 @@ app.patch('/api/admin/settings', requireAdmin, async (req, res) => {
     'payment_paypal_enabled', 'payment_paypal_handle', 'payment_paypal_note',
     'payment_cashapp_enabled','payment_cashapp_handle','payment_cashapp_note',
     'payment_btc_enabled',    'payment_btc_handle',    'payment_btc_note',
-    'payment_bank_enabled',   'payment_bank_handle',   'payment_bank_note'
+    'payment_bank_enabled',   'payment_bank_handle',   'payment_bank_note',
+    'payment_bsb_enabled',    'payment_bsb_account_name',
+    'payment_bsb_bank_name',  'payment_bsb_number',
+    'payment_bsb_account_number', 'payment_bsb_note',
+    'payment_payid_enabled',  'payment_payid_type',
+    'payment_payid_value',    'payment_payid_note'
   ];
 
   try {
