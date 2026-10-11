@@ -119,7 +119,10 @@
         <label class="field-label">Customer Instructions</label>
         <textarea name="payment_bank_note" rows="2" placeholder="Include your reference code as the payment reference."></textarea>
       </div>
-
+              <label class="field-label">Customer Instructions</label>
+        <textarea name="payment_bank_note" rows="2" placeholder="Include your reference code as the payment reference."></textarea>
+      </div>
+<!--BSB-->
       <div style="display: flex; gap: 0.75rem; margin-top: 2rem; flex-wrap: wrap;">
         <button type="submit" class="btn">Save Payment Settings</button>
         <button type="button" id="reload-settings" class="btn"
@@ -127,7 +130,50 @@
           Discard Changes
         </button>
       </div>
+             <!-- Australian Bank Transfer (BSB) -->
+      <div class="settings-card">
+        <h3>Australian Bank Transfer <span class="method-badge badge-bank">BSB</span></h3>
+        <p class="hint">Customers in Australia transfer directly using your BSB and account number.</p>
+        <label class="toggle-row">
+          <input type="checkbox" name="payment_bsb_enabled">
+          <span>Enable Australian Bank Transfer</span>
+        </label>
+        <label class="field-label">Account Name</label>
+        <input type="text" name="payment_bsb_account_name" placeholder="Ink &amp; Iron Pty Ltd">
+        <label class="field-label">Bank Name</label>
+        <input type="text" name="payment_bsb_bank_name" placeholder="Commonwealth Bank">
+        <label class="field-label">BSB (6 digits)</label>
+        <input type="text" name="payment_bsb_number" placeholder="062-000"
+               pattern="\d{3}-?\d{3}" maxlength="7" style="font-family:monospace;">
+        <label class="field-label">Account Number</label>
+        <input type="text" name="payment_bsb_account_number" placeholder="12345678"
+               pattern="\d{6,10}" maxlength="10" style="font-family:monospace;">
+        <label class="field-label">Customer Instructions</label>
+        <textarea name="payment_bsb_note" rows="2"
+                  placeholder="Use your booking reference as the payment description."></textarea>
+      </div>
 
+      <!-- PayID (Australia) -->
+      <div class="settings-card">
+        <h3>PayID <span class="method-badge badge-payid">AU</span></h3>
+        <p class="hint">Instant transfers via Australia's New Payments Platform — no BSB required.</p>
+        <label class="toggle-row">
+          <input type="checkbox" name="payment_payid_enabled">
+          <span>Enable PayID</span>
+        </label>
+        <label class="field-label">PayID Type</label>
+        <select name="payment_payid_type">
+          <option value="email">Email</option>
+          <option value="mobile">Mobile Number</option>
+          <option value="abn">ABN</option>
+        </select>
+        <label class="field-label">PayID Value</label>
+        <input type="text" name="payment_payid_value"
+               placeholder="payments@inkandiron.com.au">
+        <label class="field-label">Customer Instructions</label>
+        <textarea name="payment_payid_note" rows="2"
+                  placeholder="Send via PayID from your banking app. Reference your booking code."></textarea>
+      </div>
       <p id="payment-settings-status" class="status"></p>
     </form>
   </main>
